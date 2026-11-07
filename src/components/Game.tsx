@@ -283,7 +283,7 @@ function Seats({
   const pendingMs = new Map(state.players.map((p) => [p.id, localKickMs(state, p.kickRemainingMs, deviceNow)]));
 
   async function kick(id: string, name: string) {
-    if (!window.confirm(`Scoți jucătorul ${name} din cameră? Are 10 secunde să refuze.`)) return;
+    if (!window.confirm(`Scoți jucătorul ${name} din cameră? Are 10 secunde să refuze; dacă nu, dă fold și pierde jetoanele.`)) return;
     setKicking(id);
     try {
       await api(`/api/rooms/${state.room.code}/kick`, { token, body: { playerId: id } });
