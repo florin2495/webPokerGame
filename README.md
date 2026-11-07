@@ -41,7 +41,7 @@ deploy pe Vercel (fra1). Adresă: **https://poker.hailatat.icu**
 - Host-ul poate **sări tura** unui jucător blocat (check dacă se poate, altfel fold) și poate scoate pe cineva.
 - Cine pleacă (sau e scos) în timpul turneului dă fold și pierde jetoanele rămase; jetoanele deja puse în pot rămân acolo.
   Dacă pleacă host-ul, devine host următorul jucător.
-- Camere: lobby/terminate se închid după 2 minute în care nimeni nu le are deschise; un turneu pe care nu-l mai are
+- Camere: lobby/terminate se închid după 10 minute în care nimeni nu le are deschise; un turneu pe care nu-l mai are
   nimeni deschis se închide după 60 de minute.
 - Setări pe dispozitiv: confirmare la all-in și la fold inutil, vibrație când e rândul tău.
 

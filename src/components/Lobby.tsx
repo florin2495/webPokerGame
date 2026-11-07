@@ -5,7 +5,7 @@ import { api } from "@/lib/client/api";
 import { MAX_OBSERVERS, MAX_PLAYERS, MIN_PLAYERS, minutesLabel, ROOM_IDLE_MINUTES, type Settings, settingsError } from "@/lib/poker";
 import type { PublicPlayer, RoomState } from "@/lib/types";
 import { SettingsForm } from "./SettingsForm";
-import { Button, Card, ErrorText } from "./ui";
+import { Button, Card, ErrorText, OfflineBadge } from "./ui";
 
 export function Lobby({ state, token, refresh }: { state: RoomState; token: string; refresh: () => Promise<void> }) {
   const { room, me, players } = state;
@@ -157,6 +157,7 @@ function Members({
               {p.isHost && (
                 <span className="rounded bg-zinc-200 px-1.5 text-[10px] font-semibold uppercase dark:bg-zinc-800">host</span>
               )}
+              <OfflineBadge connected={p.connected} />
             </span>
             {canKick && p.id !== me.id && (
               <button

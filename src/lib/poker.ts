@@ -6,7 +6,7 @@ export const MAX_PLAYERS = 16;
 export const MAX_OBSERVERS = 16;
 export const NICKNAME_MAX = 12;
 /** Lobby/finished rooms nobody has open are closed after this long. */
-export const ROOM_IDLE_MINUTES = 2;
+export const ROOM_IDLE_MINUTES = 10;
 /** A running game nobody has open is closed after this long. */
 export const PLAYING_IDLE_MINUTES = 60;
 /** /state refreshes last_activity_at at most this often, to keep DB writes low. */
@@ -18,7 +18,7 @@ export const TIMEOUT_GRACE_MS = 1_500;
 /** A player with auto-check / auto-blind on acts automatically this long into their turn. */
 export const AUTO_DELAY_MS = 5_000;
 
-/** "2 minute" / "60 de minute" (Romanian numeral agreement). */
+/** "10 minute" / "60 de minute" (Romanian numeral agreement). */
 export function minutesLabel(n: number): string {
   return `${n} ${n >= 20 ? "de " : ""}${n === 1 ? "minut" : "minute"}`;
 }

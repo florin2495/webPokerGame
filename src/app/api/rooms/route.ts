@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { NICKNAME_MAX } from "@/lib/poker";
-import { hashPassword, hashToken, newPlayerToken, newRoomCode } from "@/lib/server/crypto";
+import { hashDeviceId, hashPassword, hashToken, newPlayerToken, newRoomCode } from "@/lib/server/crypto";
 import { db, T } from "@/lib/server/db";
 import { cleanText, fail, handle, isUniqueViolation, readJson } from "@/lib/server/http";
 import { cleanupExpiredRooms, parseSettings, withDefaults } from "@/lib/server/room";
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     const token = newPlayerToken();
     const { data: player, error: playerError } = await db()
       .from(T.players)
-      .insert({ room_id: room.id, nickname, token_hash: hashToken(token), is_host: true, role })
+      .insert({ room_id: room.id, nickname, token_hash: hashToken(token), device_hash: hashDeviceId(body.deviceId), is_host: true, role })
       .select("id")
       .single();
     if (playerError) throw playerError;

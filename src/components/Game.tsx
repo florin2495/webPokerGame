@@ -8,7 +8,7 @@ import { AUTO_DELAY_MS, bestHand, type Card, type LogEntry, type Options, TIMEOU
 import type { PublicGame, RoomState } from "@/lib/types";
 import { localKickMs } from "./KickModal";
 import { CardSlot, PlayingCard } from "./PlayingCard";
-import { Button, Card as Panel, ErrorText, Toggle } from "./ui";
+import { Button, Card as Panel, ErrorText, OfflineBadge, Toggle } from "./ui";
 
 /** Extra wait before a non-host device triggers a timeout / next hand, so the host's device goes first. */
 const FALLBACK_SEATED_MS = 3_000;
@@ -281,6 +281,7 @@ function Seats({
   const canKick = state.room.hostPlayerId === state.me.id;
   const [kicking, setKicking] = useState<string | null>(null);
   const pendingMs = new Map(state.players.map((p) => [p.id, localKickMs(state, p.kickRemainingMs, deviceNow)]));
+  const connected = new Map(state.players.map((p) => [p.id, p.connected]));
 
   async function kick(id: string, name: string) {
     if (!window.confirm(`Scoți jucătorul ${name} din cameră? Are 10 secunde să refuze; dacă nu, dă fold și pierde jetoanele.`)) return;
@@ -355,6 +356,7 @@ function Seats({
               </span>
             </div>
             {turn && <TurnTimer g={g} now={now} />}
+            {!s.left && <OfflineBadge connected={connected.get(s.playerId)} className="self-start" />}
             {pendingMs.get(s.playerId) != null && (
               <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">
                 iese în {Math.ceil((pendingMs.get(s.playerId) ?? 0) / 1000)} s
