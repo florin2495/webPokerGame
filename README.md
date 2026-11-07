@@ -17,7 +17,7 @@ deploy pe Vercel (fra1). Adresă: **https://poker.hailatat.icu**
        Dacă host-ul iese din turneu, rolul trece la următorul intrat la masă după el care mai are jetoane, și tot așa;
      - la un interval de timp (prima mână împărțită după X minute pe același nivel);
    - **creșterea pe nivel**: +25%, +50% sau +100%, rotunjit la valori „de cazino” (10/20 → 15/30 → 25/50 → 30/60 …);
-   - **timpul de gândire**: fără limită sau 20–120 s. Cine depășește dă automat check (dacă se poate) sau fold.
+   - **timpul pe tură**: între 10 și 60 de secunde. Cine depășește dă automat **fold**.
 3. Ceilalți intră cu codul camerei sau cu linkul `/room/COD` și aleg: **la masă** (max 16) sau **observator** (max 16).
    În lobby oricine se poate muta între masă și observatori. După start, cine intră e doar observator.
 4. Ordinea la masă: host-ul primul, apoi în ordinea intrării. Host-ul face cărțile la prima mână; butonul de dealer
@@ -29,6 +29,13 @@ deploy pe Vercel (fra1). Adresă: **https://poker.hailatat.icu**
    până la showdown.
 7. După fiecare mână, rezultatul stă 8 s pe ecran, apoi se împarte automat următoarea (host-ul poate da „Împarte acum”).
 8. La final, clasamentul; host-ul poate porni un **turneu nou** în aceeași cameră.
+
+### Opțiuni automate (fiecare jucător, în timpul turneului)
+- **Auto check**: dacă nu răspunzi în 5 s de la începutul turei, se dă check; dacă înainte a fost un raise, se dă fold.
+- **Auto big blind**: dacă nu răspunzi în 5 s, suntem înainte de flop și nimeni n-a mărit (miza e încă big blind-ul),
+  se plătește big blind-ul (sau check, dacă îl ai deja pus). Dacă ambele sunt bifate, înainte de flop fără mărire are
+  prioritate auto big blind.
+- Opțiunile se țin minte pe dispozitiv și se aplică automat la fiecare turneu nou.
 
 ### Extra
 - Host-ul poate **sări tura** unui jucător blocat (check dacă se poate, altfel fold) și poate scoate pe cineva.

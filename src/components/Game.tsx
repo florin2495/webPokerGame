@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client/api";
 import { useNow } from "@/lib/client/clock";
-import { PREF_CONFIRM_ALLIN, PREF_VIBRATE, useBoolPref } from "@/lib/client/prefs";
-import { bestHand, type Card, type LogEntry, type Options, TIMEOUT_GRACE_MS } from "@/lib/poker";
+import { PREF_AUTO_BLIND, PREF_AUTO_CHECK, PREF_CONFIRM_ALLIN, PREF_VIBRATE, readPref, useBoolPref } from "@/lib/client/prefs";
+import { AUTO_DELAY_MS, bestHand, type Card, type LogEntry, type Options, TIMEOUT_GRACE_MS } from "@/lib/poker";
 import type { PublicGame, RoomState } from "@/lib/types";
 import { CardSlot, PlayingCard } from "./PlayingCard";
-import { Button, Card as Panel, ErrorText } from "./ui";
+import { Button, Card as Panel, ErrorText, Toggle } from "./ui";
 
 /** Extra wait before a non-host device triggers a timeout / next hand, so the host's device goes first. */
 const FALLBACK_SEATED_MS = 3_000;
@@ -36,10 +36,19 @@ function actionLabel(e: LogEntry): string {
       return `SB${a}`;
     case "bb":
       return `BB${a}`;
-    case "timeout-check":
-      return "⏱ Check (timp expirat)";
     case "timeout-fold":
+    case "timeout-check":
       return "⏱ Fold (timp expirat)";
+    case "auto-check":
+      return "🤖 Auto check";
+    case "auto-fold":
+      return "🤖 Auto fold";
+    case "auto-call":
+      return `🤖 Auto big blind`;
+    case "host-check":
+      return "⏭ Check (sărit de host)";
+    case "host-fold":
+      return "⏭ Fold (sărit de host)";
     case "left":
       return "A plecat";
     default:
@@ -80,7 +89,11 @@ export function Game({ state, token, refresh }: { state: RoomState; token: strin
     if (now === 0) return;
     let key: string | null = null;
     let call: (() => Promise<unknown>) | null = null;
-    if (g.phase === "betting" && g.turnDeadline !== null && now >= g.turnDeadline + TIMEOUT_GRACE_MS + fallback) {
+    const due =
+      g.autoAt !== null ? g.autoAt : g.turnDeadline !== null ? g.turnDeadline + TIMEOUT_GRACE_MS : null;
+    // My own auto option: my device fires it on time, without the fallback delay.
+    const wait = g.autoAt !== null && g.turn === g.mySeat ? 0 : fallback;
+    if (g.phase === "betting" && due !== null && now >= due + wait) {
       key = `t:${g.turnKey}`;
       call = () => api(`${base}/timeout`, { token, body: { turn: g.turnKey } });
     } else if (g.phase === "handover" && g.nextHandAt !== null && now >= g.nextHandAt + fallback) {
@@ -92,7 +105,19 @@ export function Game({ state, token, refresh }: { state: RoomState; token: strin
     call()
       .catch(() => undefined) // somebody else was faster: fine
       .finally(() => void refresh());
-  }, [now, g.phase, g.turnDeadline, g.turnKey, g.nextHandAt, g.handNo, fallback, base, token, refresh]);
+  }, [now, g.phase, g.autoAt, g.turn, g.mySeat, g.turnDeadline, g.turnKey, g.nextHandAt, g.handNo, fallback, base, token, refresh]);
+
+  // Auto options are remembered on the device: apply them once to every new tournament.
+  const synced = useRef<number | null>(null);
+  useEffect(() => {
+    if (!g.myAuto || g.phase === "over" || synced.current === room.round) return;
+    synced.current = room.round;
+    const want = { autoCheck: readPref(PREF_AUTO_CHECK) === "1", autoBlind: readPref(PREF_AUTO_BLIND) === "1" };
+    if (want.autoCheck === g.myAuto.autoCheck && want.autoBlind === g.myAuto.autoBlind) return;
+    api(`${base}/auto`, { token, body: want })
+      .catch(() => undefined)
+      .finally(() => void refresh());
+  }, [g.myAuto, g.phase, room.round, base, token, refresh]);
 
   // Buzz once when the turn comes to me.
   const myTurn = g.phase === "betting" && g.mySeat !== null && g.turn === g.mySeat;
@@ -168,6 +193,14 @@ export function Game({ state, token, refresh }: { state: RoomState; token: strin
             />
           )}
         </Panel>
+      )}
+
+      {mine && g.myAuto && mine.place === null && g.phase !== "over" && (
+        <AutoOptions
+          value={g.myAuto}
+          busy={busy}
+          onChange={(v) => void run(() => api(`${base}/auto`, { token, body: v }))}
+        />
       )}
 
       {g.mySeat === null && (
@@ -303,12 +336,52 @@ function Badge({ children, className }: { children: string; className: string })
 }
 
 function TurnTimer({ g, now }: { g: PublicGame; now: number }) {
-  if (g.turnDeadline === null || now === 0) return <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">la rând…</span>;
-  const left = Math.max(0, g.turnDeadline - now);
+  const until = g.autoAt ?? g.turnDeadline;
+  if (until === null || now === 0) return <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">la rând…</span>;
+  const left = Math.max(0, until - now);
   return (
     <span className="text-xs font-semibold text-indigo-600 tabular-nums dark:text-indigo-400">
-      la rând · {Math.ceil(left / 1000)} s
+      la rând · {g.autoAt !== null ? "auto în " : ""}
+      {Math.ceil(left / 1000)} s
     </span>
+  );
+}
+
+function AutoOptions({
+  value,
+  busy,
+  onChange,
+}: {
+  value: { autoCheck: boolean; autoBlind: boolean };
+  busy: boolean;
+  onChange: (v: { autoCheck: boolean; autoBlind: boolean }) => void;
+}) {
+  const [, setCheckPref] = useBoolPref(PREF_AUTO_CHECK, false);
+  const [, setBlindPref] = useBoolPref(PREF_AUTO_BLIND, false);
+  const secs = AUTO_DELAY_MS / 1000;
+  return (
+    <Panel className="py-2">
+      <Toggle
+        label="Auto check"
+        hint={`Dacă nu răspunzi în ${secs} s: check dacă se poate; dacă cineva a mărit, fold.`}
+        checked={value.autoCheck}
+        disabled={busy}
+        onChange={(v) => {
+          setCheckPref(v);
+          onChange({ ...value, autoCheck: v });
+        }}
+      />
+      <Toggle
+        label="Auto big blind"
+        hint={`Dacă nu răspunzi în ${secs} s, înainte de flop și fără nicio mărire: plătești big blind-ul.`}
+        checked={value.autoBlind}
+        disabled={busy}
+        onChange={(v) => {
+          setBlindPref(v);
+          onChange({ ...value, autoBlind: v });
+        }}
+      />
+    </Panel>
   );
 }
 

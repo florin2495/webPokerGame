@@ -15,6 +15,8 @@ export const PRESENCE_TOUCH_MS = 20_000;
 export const NEXT_HAND_DELAY_MS = 8_000;
 /** Extra time on top of the turn timer, for network latency, before a turn can be forced. */
 export const TIMEOUT_GRACE_MS = 1_500;
+/** A player with auto-check / auto-blind on acts automatically this long into their turn. */
+export const AUTO_DELAY_MS = 5_000;
 
 /** "2 minute" / "60 de minute" (Romanian numeral agreement). */
 export function minutesLabel(n: number): string {
@@ -163,7 +165,7 @@ export interface Settings {
   everyMinutes: number;
   /** Blind increase per level, in percent (50 = ×1.5). */
   growth: number;
-  /** Seconds to act; 0 = no limit (the host can still skip a stalled player). */
+  /** Seconds to act (10-60). When they run out, the player folds automatically. */
   turnSeconds: number;
 }
 
@@ -175,7 +177,7 @@ export const DEFAULT_SETTINGS: Settings = {
   everyHands: 10,
   everyMinutes: 10,
   growth: 50,
-  turnSeconds: 60,
+  turnSeconds: 30,
 };
 
 export const LIMITS = {
@@ -186,7 +188,7 @@ export const LIMITS = {
   everyMinutes: [1, 120],
 } as const;
 export const GROWTH_OPTIONS = [25, 50, 100];
-export const TURN_OPTIONS = [0, 20, 30, 60, 90, 120];
+export const TURN_OPTIONS = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
 
 /** Problem with these settings, in Romanian, or null when valid. */
 export function settingsError(s: Settings): string | null {
@@ -200,7 +202,7 @@ export function settingsError(s: Settings): string | null {
   if (!int(s.everyHands, LIMITS.everyHands)) return `Numărul de mâini trebuie să fie între ${LIMITS.everyHands[0]} și ${LIMITS.everyHands[1]}.`;
   if (!int(s.everyMinutes, LIMITS.everyMinutes)) return `Minutele trebuie să fie între ${LIMITS.everyMinutes[0]} și ${LIMITS.everyMinutes[1]}.`;
   if (!GROWTH_OPTIONS.includes(s.growth)) return "Creștere invalidă.";
-  if (!TURN_OPTIONS.includes(s.turnSeconds)) return "Timp de gândire invalid.";
+  if (!TURN_OPTIONS.includes(s.turnSeconds)) return "Timpul pe tură trebuie să fie între 10 și 60 de secunde.";
   return null;
 }
 
@@ -329,6 +331,10 @@ export interface GameState {
   log: LogEntry[];
   last: HandSummary | null;
   winner: number | null;
+  /** Per seat, chosen by each player: after AUTO_DELAY_MS check if free, otherwise fold. */
+  autoCheck?: boolean[];
+  /** Per seat: after AUTO_DELAY_MS, pre-flop with no raise yet, call the big blind (check if already in). */
+  autoBlind?: boolean[];
 }
 
 const clone = (g: GameState): GameState => JSON.parse(JSON.stringify(g)) as GameState;
@@ -398,6 +404,8 @@ export function newGame(
     log: [],
     last: null,
     winner: null,
+    autoCheck: Array(n).fill(false),
+    autoBlind: Array(n).fill(false),
   };
   return dealHand(g, now, random, true);
 }
@@ -603,15 +611,58 @@ export function act(src: GameState, seat: number, kind: ActionKind, amount: numb
   return advance(g, seat, now);
 }
 
-/** Forced action when the turn timer ran out or the host skips: check if free, otherwise fold. */
-export function forceAction(g: GameState, now: number): GameState {
+/**
+ * Why a turn is played for the player:
+ *  - "timeout": the turn timer ran out -> fold
+ *  - "host":    the host skipped a stalled player -> check if free, otherwise fold
+ *  - "auto":    the player's own auto-check / auto-blind option (see autoAction)
+ */
+export type ForceReason = "timeout" | "host" | "auto";
+
+/** The automatic action the current player chose in advance, or null if none applies right now. */
+export function autoAction(g: GameState): "check" | "call" | "fold" | null {
+  if (g.phase !== "betting" || g.turn < 0) return null;
+  const seat = g.turn;
+  const o = options(g, seat);
+  if (!o) return null;
+  // Auto-blind: pre-flop, nobody raised yet (the bet is still the big blind) -> pay the big blind.
+  if (g.autoBlind?.[seat] && g.street === "preflop" && g.currentBet === g.bb) return o.canCheck ? "check" : "call";
+  if (g.autoCheck?.[seat]) return o.canCheck ? "check" : "fold";
+  return null;
+}
+
+/** ms epoch when the current player's auto option fires, null when none applies. */
+export function autoDeadline(g: GameState): number | null {
+  return autoAction(g) ? g.turnStartedAt + AUTO_DELAY_MS : null;
+}
+
+export function forceAction(g: GameState, now: number, reason: ForceReason = "host"): GameState {
   rule(g.phase === "betting" && g.turn >= 0, "Nu așteaptă nimeni acum.");
   const seat = g.turn;
   const opt = options(g, seat)!;
-  const next = act(g, seat, opt.canCheck ? "check" : "fold", undefined, now);
+  let kind: "check" | "call" | "fold";
+  if (reason === "timeout") kind = "fold";
+  else if (reason === "auto") {
+    const a = autoAction(g);
+    rule(a !== null, "Jucătorul nu are nicio acțiune automată activă.");
+    kind = a!;
+  } else kind = opt.canCheck ? "check" : "fold";
+  const next = act(g, seat, kind, undefined, now);
   const entry = [...next.log].reverse().find((e) => e.seat === seat);
-  if (entry) entry.what = `timeout-${entry.what}`;
+  if (entry) entry.what = `${reason}-${entry.what}`;
   return next;
+}
+
+/** A player turns their own auto-check / auto-blind options on or off (any time during the tournament). */
+export function setAuto(src: GameState, seat: number, flags: { autoCheck?: boolean; autoBlind?: boolean }): GameState {
+  rule(src.phase !== "over", "Turneul s-a terminat.");
+  const g = clone(src);
+  const n = g.seats.length;
+  g.autoCheck = g.autoCheck ?? Array(n).fill(false);
+  g.autoBlind = g.autoBlind ?? Array(n).fill(false);
+  if (flags.autoCheck !== undefined) g.autoCheck[seat] = flags.autoCheck;
+  if (flags.autoBlind !== undefined) g.autoBlind[seat] = flags.autoBlind;
+  return g;
 }
 
 /** Splits `amount` between `winners`; odd chips go to the first winners left of the dealer. */
@@ -778,7 +829,7 @@ export function removeSeat(src: GameState, seat: number, now: number): GameState
 
 /** ms epoch after which the current turn may be forced (null when there is no turn timer). */
 export function turnDeadline(g: GameState): number | null {
-  if (g.phase !== "betting" || g.turn < 0 || g.settings.turnSeconds === 0) return null;
+  if (g.phase !== "betting" || g.turn < 0 || !g.settings.turnSeconds) return null;
   return g.turnStartedAt + g.settings.turnSeconds * 1000;
 }
 

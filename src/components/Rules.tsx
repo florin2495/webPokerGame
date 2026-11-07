@@ -11,6 +11,11 @@ export function Rules() {
         <li>La rândul tău: fold (renunți), check (dacă nu ai ce plăti), call (plătești cât s-a pus), raise (mărești, cel puțin cu ultima mărire) sau all-in.</li>
         <li>La final, cea mai bună combinație de 5 cărți din cele 7 (2 ale tale + 5 de pe masă) ia potul. Cine e all-in poate câștiga doar cât a pus (side pots).</li>
         <li>Blind-urile cresc după regula aleasă de host: la un număr de mâini, la un interval de timp, sau de fiecare dată când host-ul face din nou cărțile (după el, următorul intrat la masă care mai are jetoane).</li>
+        <li>
+          Fiecare are între 10 și 60 de secunde pe tură (alege host-ul). Dacă timpul expiră, dai fold automat. Opțional,
+          fiecare jucător își poate bifa „Auto check” (după 5 s: check, sau fold dacă s-a mărit) și „Auto big blind” (după 5 s,
+          înainte de flop, dacă nimeni n-a mărit: plătești big blind-ul).
+        </li>
         <li>Observatorii văd masa și jetoanele, dar nu cărțile nimănui până la showdown.</li>
       </ol>
       <p className="mt-2">

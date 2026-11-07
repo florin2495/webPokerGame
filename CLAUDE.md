@@ -37,6 +37,8 @@ Rules for schema changes:
   own hole cards (`publicGame` in `src/lib/server/room.ts`); everyone's at showdown.
 - Members: `poker_players.role` = `player` (max 16) or `observer` (max 16). Seats are fixed at start (host first,
   then join order). Joining mid-tournament = observer.
+- Turn timer 10-60 s (room setting); on expiry the player folds. Per-player auto options live in the game state
+  (`autoCheck`, `autoBlind`, set via `/auto`): 5 s into the turn, `autoAction` plays check/fold or calls the big blind.
 - No cron: the turn timeout (`/timeout`) and the next hand (`/next`) are triggered lazily by clients (host first,
   seated players +3 s, observers +6 s); the server checks the deadlines and `turnKey` / `handNo` so duplicates are no-ops.
 - Realtime: Broadcast topic `poker:room:<uuid>` carries no data, clients re-fetch `/state`; 15 s polling fallback.

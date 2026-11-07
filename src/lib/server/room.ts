@@ -17,6 +17,8 @@ import {
   settingsError,
   turnDeadline,
   turnKey,
+  TURN_OPTIONS,
+  autoDeadline,
 } from "@/lib/poker";
 import type { PublicGame, PublicPlayer, RoomState } from "@/lib/types";
 import { hashToken } from "./crypto";
@@ -162,7 +164,12 @@ export function parseSettings(body: Record<string, unknown>, current: Settings =
 }
 
 /** Settings stored before a field existed get the default for it. */
-export const withDefaults = (s: Partial<Settings> | null): Settings => ({ ...DEFAULT_SETTINGS, ...(s ?? {}) });
+export function withDefaults(s: Partial<Settings> | null): Settings {
+  const merged = { ...DEFAULT_SETTINGS, ...(s ?? {}) };
+  // Rooms created before the 10-60 s turn timer get the default.
+  if (!TURN_OPTIONS.includes(merged.turnSeconds)) merged.turnSeconds = DEFAULT_SETTINGS.turnSeconds;
+  return merged;
+}
 
 const toPublic = (p: PlayerRow): PublicPlayer => ({ id: p.id, nickname: p.nickname, isHost: p.is_host, role: p.role });
 
@@ -205,6 +212,8 @@ function publicGame(g: GameState, meId: string): PublicGame {
     turn: g.turn,
     turnKey: turnKey(g),
     turnDeadline: turnDeadline(g),
+    autoAt: autoDeadline(g),
+    myAuto: mySeat !== null ? { autoCheck: g.autoCheck?.[mySeat] ?? false, autoBlind: g.autoBlind?.[mySeat] ?? false } : null,
     phase: g.phase,
     nextHandAt: g.phase === "handover" ? g.handEndedAt + NEXT_HAND_DELAY_MS : null,
     log: g.log,

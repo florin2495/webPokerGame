@@ -16,6 +16,10 @@ import {
   options,
   potTotal,
   removeSeat,
+  setAuto,
+  autoAction,
+  autoDeadline,
+  AUTO_DELAY_MS,
   seatOrder,
   type Settings,
   settingsError,
@@ -71,6 +75,10 @@ describe("settings and blinds", () => {
     expect(settingsError(DEFAULT_SETTINGS)).toBeNull();
     expect(settingsError({ ...DEFAULT_SETTINGS, bigBlind: 10 })).not.toBeNull();
     expect(settingsError({ ...DEFAULT_SETTINGS, buyIn: 30 })).not.toBeNull();
+    expect(settingsError({ ...DEFAULT_SETTINGS, turnSeconds: 0 })).not.toBeNull();
+    expect(settingsError({ ...DEFAULT_SETTINGS, turnSeconds: 90 })).not.toBeNull();
+    expect(settingsError({ ...DEFAULT_SETTINGS, turnSeconds: 10 })).toBeNull();
+    expect(settingsError({ ...DEFAULT_SETTINGS, turnSeconds: 60 })).toBeNull();
   });
   it("rounds to casino values and always increases", () => {
     expect(niceChips(45)).toBe(50);
@@ -303,5 +311,69 @@ describe("random tournaments", () => {
       // Places are a permutation of 1..n.
       expect([...s.place].sort((a, b) => a! - b!)).toEqual(Array.from({ length: n }, (_, i) => i + 1));
     }
+  });
+});
+
+describe("timer and auto options", () => {
+  it("a timeout folds, even when checking was free", () => {
+    let s = start(3);
+    s = act(s, 0, "call", undefined, 0);
+    s = act(s, 1, "call", undefined, 0);
+    expect(options(s, 2)?.canCheck).toBe(true); // BB option
+    s = forceAction(s, 0, "timeout");
+    expect(s.folded[2]).toBe(true);
+    expect(s.log.at(-1)?.what).toBe("timeout-fold");
+  });
+
+  it("auto-check checks when free and folds after a raise", () => {
+    let s = start(3);
+    expect(autoAction(s)).toBeNull();
+    expect(autoDeadline(s)).toBeNull();
+    s = setAuto(s, 2, { autoCheck: true });
+    s = act(s, 0, "call", undefined, 1000);
+    s = act(s, 1, "call", undefined, 1000);
+    expect(autoAction(s)).toBe("check");
+    expect(autoDeadline(s)).toBe(1000 + AUTO_DELAY_MS);
+    s = forceAction(s, 2000, "auto");
+    expect(s.street).toBe("flop");
+    expect(s.log.find((e) => e.what === "auto-check")?.seat).toBe(2);
+
+    let r = setAuto(start(3), 2, { autoCheck: true });
+    r = act(r, 0, "raise", 60, 0);
+    r = act(r, 1, "fold", undefined, 0);
+    expect(autoAction(r)).toBe("fold");
+    r = forceAction(r, 0, "auto");
+    expect(r.phase).toBe("handover");
+    expect(r.stacks[0]).toBe(1000 + 10 + 20);
+  });
+
+  it("auto-blind pays the big blind pre-flop when nobody raised, and only then", () => {
+    let s = setAuto(start(4), 3, { autoBlind: true }); // seat 3 = UTG, first to act
+    expect(s.turn).toBe(3);
+    expect(autoAction(s)).toBe("call");
+    s = forceAction(s, 0, "auto");
+    expect(s.bets[3]).toBe(20);
+    expect(s.log.at(-1)?.what).toBe("auto-call");
+
+    // After a raise, auto-blind alone does nothing; with auto-check too, the player folds.
+    let r = setAuto(start(4), 1, { autoBlind: true });
+    r = act(r, 3, "raise", 80, 0);
+    r = act(r, 0, "fold", undefined, 0);
+    expect(r.turn).toBe(1);
+    expect(autoAction(r)).toBeNull();
+    r = setAuto(r, 1, { autoCheck: true });
+    expect(autoAction(r)).toBe("fold");
+
+    // Post-flop, auto-blind alone does nothing.
+    let f = setAuto(start(2), 1, { autoBlind: true });
+    f = act(f, 0, "call", undefined, 0);
+    f = forceAction(f, 0, "auto"); // BB checks its option
+    expect(f.street).toBe("flop");
+    expect(f.turn).toBe(1);
+    expect(autoAction(f)).toBeNull();
+  });
+
+  it("auto actions refuse to run when none applies", () => {
+    expect(() => forceAction(start(3), 0, "auto")).toThrow();
   });
 });

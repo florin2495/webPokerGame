@@ -113,7 +113,7 @@ export function SettingsForm({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium">
-          Timp de gândire
+          Timp pe tură
           <select
             value={value.turnSeconds}
             disabled={disabled}
@@ -122,7 +122,7 @@ export function SettingsForm({
           >
             {TURN_OPTIONS.map((t) => (
               <option key={t} value={t}>
-                {t === 0 ? "Fără limită" : `${t} secunde`}
+                {t} secunde
               </option>
             ))}
           </select>
@@ -139,7 +139,7 @@ export function SettingsForm({
           </p>
           <p className="mt-1">
             Fiecare jucător pornește cu {value.buyIn} jetoane ({Math.floor(value.buyIn / value.bigBlind)} big blind-uri).
-            {value.turnSeconds > 0 && ` Cine nu acționează în ${value.turnSeconds} s dă automat check sau fold.`}
+            {` Cine nu acționează în ${value.turnSeconds} s dă automat fold.`}
           </p>
         </div>
       )}

@@ -57,6 +57,8 @@ export function useStringPref(key: string): string | null {
 }
 
 export const PREF_CONFIRM_ALLIN = "poker:pref:confirmAllIn";
+export const PREF_AUTO_CHECK = "poker:pref:autoCheck";
+export const PREF_AUTO_BLIND = "poker:pref:autoBlind";
 export const PREF_VIBRATE = "poker:pref:vibrate";
 
 export const PREF_NICKNAME = "poker:pref:nickname";

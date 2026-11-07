@@ -54,8 +54,12 @@ export interface PublicGame {
   turn: number;
   /** Identifies the current turn, sent back with a skip / timeout. */
   turnKey: string;
-  /** ms epoch after which the turn may be forced, null without a timer. */
+  /** ms epoch when the turn times out (fold), null without a timer. */
   turnDeadline: number | null;
+  /** ms epoch when the current player's own auto option plays for them, null when none applies. */
+  autoAt: number | null;
+  /** My auto options (seated players only). */
+  myAuto: { autoCheck: boolean; autoBlind: boolean } | null;
   phase: "betting" | "handover" | "over";
   /** ms epoch when the next hand is dealt automatically (handover only). */
   nextHandAt: number | null;
