@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "Poker",
   applicationName: "Poker",
   appleWebApp: { capable: true, title: "Poker", statusBarStyle: "default" },
+  other: { "apple-mobile-web-app-capable": "yes" },
   description: "Texas Hold'em între prieteni, pe telefon. Până la 16 jucători și 16 observatori.",
 };
 

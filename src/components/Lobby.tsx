@@ -130,7 +130,7 @@ function Members({
   const [error, setError] = useState("");
 
   async function kick(id: string, nickname: string) {
-    if (!window.confirm(`Scoți pe ${nickname} din cameră?`)) return;
+    if (!window.confirm(`Scoți jucătorul ${nickname} din cameră?`)) return;
     setBusy(id);
     setError("");
     try {
