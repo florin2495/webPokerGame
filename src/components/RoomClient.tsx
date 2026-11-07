@@ -19,6 +19,7 @@ import { minutesLabel, NICKNAME_MAX, ROOM_IDLE_MINUTES } from "@/lib/poker";
 import type { RoomState } from "@/lib/types";
 import { FeedbackButton } from "./FeedbackButton";
 import { Game } from "./Game";
+import { KickWatcher } from "./KickModal";
 import { Lobby } from "./Lobby";
 import { SettingsPanel } from "./SettingsPanel";
 import { Button, Card, ErrorText, Field } from "./ui";
@@ -143,6 +144,7 @@ function Room({ code, token }: { code: string; token: string }) {
       )}
       <SettingsPanel />
       <LeaveButton state={state} token={token} />
+      <KickWatcher state={state} token={token} refresh={refresh} />
     </main>
   );
 }

@@ -1,5 +1,6 @@
 import { MAX_PLAYERS, MIN_PLAYERS, newGame, seatOrder } from "@/lib/poker";
 import { notifyRoom } from "@/lib/server/broadcast";
+import { clearKicks } from "@/lib/server/membership";
 import { secureRandom } from "@/lib/server/crypto";
 import { fail, handle } from "@/lib/server/http";
 import { listPlayers, requireHost, requireMember, requireStatus, saveRoom, withDefaults } from "@/lib/server/room";
@@ -23,6 +24,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/st
     const names = seats.map((id) => players.find((p) => p.id === id)!.nickname);
     const game = newGame(seats, names, withDefaults(room.settings), Date.now(), secureRandom);
     await saveRoom(room, { status: "playing", game });
+    await clearKicks(room.id);
 
     await notifyRoom(room.id, "game_started");
     return { ok: true };

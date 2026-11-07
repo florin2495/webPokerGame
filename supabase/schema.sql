@@ -42,8 +42,11 @@ create table if not exists public.poker_players (
   token_hash text not null constraint poker_players_token_hash_key unique,
   is_host    boolean not null default false,
   role       text not null default 'player' constraint poker_players_role_check check (role in ('player', 'observer')),
-  joined_at  timestamptz not null default now()
+  joined_at  timestamptz not null default now(),
+  kick_requested_at timestamptz                              -- pending kick during a tournament (null = none), see migrations/001
 );
+-- Pending kick (migration 001): also for databases created before the column existed.
+alter table public.poker_players add column if not exists kick_requested_at timestamptz;
 create unique index if not exists poker_players_room_nickname_uq on public.poker_players (room_id, lower(nickname));
 create index if not exists poker_players_room_idx on public.poker_players (room_id);
 

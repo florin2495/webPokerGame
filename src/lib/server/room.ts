@@ -24,6 +24,8 @@ import type { PublicGame, PublicPlayer, RoomState } from "@/lib/types";
 import { hashToken } from "./crypto";
 import { db, PLAYER_COLUMNS, type PlayerRow, ROOM_COLUMNS, type RoomRow, T } from "./db";
 import { ApiError, fail } from "./http";
+import { enforceExpiredKicks } from "./membership";
+import { kickRemainingMs } from "@/lib/kick";
 
 const GONE = `Camera nu există sau a fost închisă după ${minutesLabel(ROOM_IDLE_MINUTES)} de inactivitate.`;
 
@@ -67,7 +69,8 @@ export async function touchRoom(roomId: string): Promise<void> {
 export async function requireMember(req: Request, code: string): Promise<{ room: RoomRow; player: PlayerRow }> {
   const token = req.headers.get("x-player-token");
   if (!token || token.length > 200) fail(401, "Nu ești în această cameră.");
-  const room = await getRoomByCode(code);
+  // Lazy enforcement of expired pending kicks, before the caller's membership is checked.
+  const room = await enforceExpiredKicks(await getRoomByCode(code));
   const { data, error } = await db()
     .from(T.players)
     .select(PLAYER_COLUMNS)
@@ -171,7 +174,13 @@ export function withDefaults(s: Partial<Settings> | null): Settings {
   return merged;
 }
 
-const toPublic = (p: PlayerRow): PublicPlayer => ({ id: p.id, nickname: p.nickname, isHost: p.is_host, role: p.role });
+const toPublic = (p: PlayerRow, now: number): PublicPlayer => ({
+  id: p.id,
+  nickname: p.nickname,
+  isHost: p.is_host,
+  role: p.role,
+  kickRemainingMs: kickRemainingMs(p.kick_requested_at, now),
+});
 
 function publicGame(g: GameState, meId: string): PublicGame {
   const seat = g.seats.indexOf(meId);
@@ -230,6 +239,7 @@ export async function buildState(room: RoomRow, me: PlayerRow): Promise<RoomStat
     const pos = new Map(room.game.seats.map((id, i) => [id, i]));
     ordered = [...players].sort((a, b) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9));
   }
+  const now = Date.now();
   return {
     room: {
       id: room.id,
@@ -241,9 +251,9 @@ export async function buildState(room: RoomRow, me: PlayerRow): Promise<RoomStat
       hostPlayerId: room.host_player_id,
       settings: withDefaults(room.settings),
     },
-    players: ordered.map(toPublic),
-    me: toPublic(me),
+    players: ordered.map((p) => toPublic(p, now)),
+    me: toPublic(me, now),
     game: room.game ? publicGame(room.game, me.id) : null,
-    serverNow: Date.now(),
+    serverNow: now,
   };
 }

@@ -8,6 +8,8 @@ export interface PublicPlayer {
   nickname: string;
   isHost: boolean;
   role: Role;
+  /** Ms left of a pending kick (host kicked this player during a tournament), null when none. */
+  kickRemainingMs: number | null;
 }
 
 export interface PublicSeat {

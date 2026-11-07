@@ -6,6 +6,7 @@ import { useNow } from "@/lib/client/clock";
 import { PREF_AUTO_BLIND, PREF_AUTO_CHECK, PREF_CONFIRM_ALLIN, PREF_VIBRATE, readPref, useBoolPref } from "@/lib/client/prefs";
 import { AUTO_DELAY_MS, bestHand, type Card, type LogEntry, type Options, TIMEOUT_GRACE_MS } from "@/lib/poker";
 import type { PublicGame, RoomState } from "@/lib/types";
+import { localKickMs } from "./KickModal";
 import { CardSlot, PlayingCard } from "./PlayingCard";
 import { Button, Card as Panel, ErrorText, Toggle } from "./ui";
 
@@ -216,7 +217,7 @@ export function Game({ state, token, refresh }: { state: RoomState; token: strin
 
       <ErrorText>{error}</ErrorText>
 
-      <Seats g={g} now={now} />
+      <Seats g={g} now={now} state={state} token={token} refresh={refresh} />
 
       {isHost && g.phase === "betting" && g.turn >= 0 && g.turn !== g.mySeat && (
         <Button
@@ -263,7 +264,37 @@ function BlindBar({ g, now }: { g: PublicGame; now: number }) {
   );
 }
 
-function Seats({ g, now }: { g: PublicGame; now: number }) {
+function Seats({
+  g,
+  now,
+  state,
+  token,
+  refresh,
+}: {
+  g: PublicGame;
+  now: number;
+  state: RoomState;
+  token: string;
+  refresh: () => Promise<void>;
+}) {
+  const deviceNow = useNow();
+  const canKick = state.room.hostPlayerId === state.me.id;
+  const [kicking, setKicking] = useState<string | null>(null);
+  const pendingMs = new Map(state.players.map((p) => [p.id, localKickMs(state, p.kickRemainingMs, deviceNow)]));
+
+  async function kick(id: string, name: string) {
+    if (!window.confirm(`Scoți pe ${name} din cameră? Are 10 s să refuze.`)) return;
+    setKicking(id);
+    try {
+      await api(`/api/rooms/${state.room.code}/kick`, { token, body: { playerId: id } });
+    } catch {
+      // already gone or not allowed: the refresh shows the real state
+    } finally {
+      setKicking(null);
+      void refresh();
+    }
+  }
+
   // Last action of each seat on the current street.
   const lastBySeat = new Map<number, LogEntry>();
   for (const e of g.log) if (e.street === g.street || e.what === "left") lastBySeat.set(e.seat, e);
@@ -324,6 +355,22 @@ function Seats({ g, now }: { g: PublicGame; now: number }) {
               </span>
             </div>
             {turn && <TurnTimer g={g} now={now} />}
+            {pendingMs.get(s.playerId) != null && (
+              <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                iese în {Math.ceil((pendingMs.get(s.playerId) ?? 0) / 1000)} s
+              </span>
+            )}
+            {canKick && i !== g.mySeat && !s.left && pendingMs.get(s.playerId) == null && (
+              <button
+                type="button"
+                onClick={() => void kick(s.playerId, s.name)}
+                disabled={kicking !== null}
+                className="min-h-8 self-start rounded-md border border-rose-300 px-2 text-xs font-semibold text-rose-600 disabled:opacity-40 dark:border-rose-800 dark:text-rose-400"
+                aria-label={`Scoate pe ${s.name}`}
+              >
+                {kicking === s.playerId ? "…" : "Scoate"}
+              </button>
+            )}
           </li>
         );
       })}
