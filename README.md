@@ -1,8 +1,8 @@
 # webPokerGame
 
 Texas Hold'em No-Limit între prieteni, pe telefon: până la **16 jucători** și **16 observatori** pe cameră (32 de persoane).
-Pe stilul [Bingo](https://bingo.hailatat.icu): Next.js 16 (App Router), Supabase (Postgres + Realtime Broadcast),
-deploy pe Vercel (fra1). Adresă: **https://poker.hailatat.icu**
+Pe stilul [Bingo](https://games.hailatat.icu/bingo): Next.js 16 (App Router), Supabase (Postgres + Realtime Broadcast),
+deploy pe Vercel (fra1). Adresă: **https://games.hailatat.icu/poker**
 
 ## Reguli
 
@@ -67,4 +67,4 @@ deploy pe Vercel (fra1). Adresă: **https://poker.hailatat.icu**
    `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` → Deploy (sau Redeploy după ce le adaugi).
    `vercel.json` fixează funcțiile în `fra1` (Frankfurt, lângă DB). Verificare: headerul `X-Vercel-Id` al unui
    request la `/api/rooms` trebuie să conțină `fra1`.
-4. **Domeniu**: Settings → Domains → Add `poker.hailatat.icu`.
+4. **Domeniu**: nu are domeniu propriu; hub-ul (games.hailatat.icu) face proxy pe `/poker/*` către `<proiect>.vercel.app/poker/*` (basePath `/poker`).

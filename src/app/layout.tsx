@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Poker",
   applicationName: "Poker",
+  // Metadata URLs are not basePath-prefixed automatically.
+  icons: {
+    icon: [{ url: "/poker/favicon.ico", sizes: "48x48", type: "image/x-icon" }],
+    apple: [{ url: "/poker/pwa-icons/apple", sizes: "180x180", type: "image/png" }],
+  },
   appleWebApp: { capable: true, title: "Poker", statusBarStyle: "default" },
   other: { "apple-mobile-web-app-capable": "yes" },
   description: "Texas Hold'em între prieteni, pe telefon. Până la 16 jucători și 16 observatori.",

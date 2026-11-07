@@ -5,7 +5,8 @@
 ## Accounts and deploy
 - GitHub: personal account **florin2495** only (repo `florin2495/webPokerGame`, private). Never the work account.
   Local git identity is pinned in `.git/config`.
-- Vercel project is connected by hand by the user; production domain: https://poker.hailatat.icu
+- Vercel project is connected by hand by the user; production URL: https://games.hailatat.icu/poker
+  (basePath `/poker`; the hub proxies `/poker/*` to this project)
 - Functions run in `fra1` (Frankfurt, `vercel.json`), next to the Supabase DB.
 - Feedback (`POST /api/feedback`) writes to `hub_feedback` (owned by florin2495/hailataticu-hub, slug `poker`).
 - Ask the user before pushing (= deploying), unless they explicitly say to deploy.
