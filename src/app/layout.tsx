@@ -14,6 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Poker",
+  applicationName: "Poker",
+  appleWebApp: { capable: true, title: "Poker", statusBarStyle: "default" },
   description: "Texas Hold'em între prieteni, pe telefon. Până la 16 jucători și 16 observatori.",
 };
 
