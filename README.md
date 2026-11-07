@@ -1,7 +1,7 @@
 # webPokerGame
 
 Texas Hold'em No-Limit între prieteni, pe telefon: până la **16 jucători** și **16 observatori** pe cameră (32 de persoane).
-Pe stilul [Bingo](https://games.hailatat.icu/bingo): Next.js 16 (App Router), Supabase (Postgres + Realtime Broadcast),
+Pe stilul [Bingo](https://games.hailatat.icu/classicbingo): Next.js 16 (App Router), Supabase (Postgres + Realtime Broadcast),
 deploy pe Vercel (fra1). Adresă: **https://games.hailatat.icu/poker**
 
 ## Reguli
