@@ -19,7 +19,7 @@ so this list is the source of truth. **Update it whenever the user confirms a mi
 | Migration | Applied to the live DB | Notes |
 | --- | --- | --- |
 | `supabase/schema.sql` (initial) | no | `poker_rooms`, `poker_players` (with `role`: player / observer) |
-| `supabase/migrations/001_pending_kick.sql` | **not yet applied** | `poker_players.kick_requested_at timestamptz` (host kick during a game = 10 s pending kick, "Ignoră"). Code needs it: do not push before it ran |
+| `supabase/migrations/001_pending_kick.sql` | yes (2026-11-07, verified) | `poker_players.kick_requested_at timestamptz` (host kick during a game = 10 s pending kick, "Ignoră"). Code needs it: do not push before it ran |
 
 Rules for schema changes:
 - Every object of this game is prefixed `poker_` (tables, constraints, indexes). Table names live in `T`
