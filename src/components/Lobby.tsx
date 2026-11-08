@@ -53,7 +53,7 @@ export function Lobby({ state, token, refresh }: { state: RoomState; token: stri
             {n}/{MAX_PLAYERS}
           </span>
         </div>
-        <Members list={seated} state={state} token={token} refresh={refresh} empty="Nimeni la masă încă." />
+        <Members list={seated} state={state} token={token} refresh={refresh} empty="Nimeni la masă încă." reorderable />
         {n < MIN_PLAYERS && (
           <p className="mt-2 text-sm text-zinc-500">
             Mai trebuie {MIN_PLAYERS - n} {MIN_PLAYERS - n === 1 ? "jucător" : "jucători"}. Apasă pe cod (sus) ca să trimiți invitația.
@@ -117,12 +117,15 @@ function Members({
   token,
   refresh,
   empty,
+  reorderable = false,
 }: {
   list: PublicPlayer[];
   state: RoomState;
   token: string;
   refresh: () => Promise<void>;
   empty: string;
+  /** Host sees up/down arrows (seat order of the next tournament). */
+  reorderable?: boolean;
 }) {
   const { me, room } = state;
   const canKick = room.hostPlayerId === me.id;
@@ -143,11 +146,29 @@ function Members({
     }
   }
 
+  async function move(index: number, delta: -1 | 1) {
+    const ids = list.map((p) => p.id);
+    const j = index + delta;
+    if (j < 0 || j >= ids.length) return;
+    [ids[index], ids[j]] = [ids[j], ids[index]];
+    setBusy(ids[j]);
+    setError("");
+    try {
+      await api(`/api/rooms/${room.code}/reorder`, { token, body: { order: ids } });
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Eroare.");
+    } finally {
+      setBusy(null);
+    }
+  }
+  const canReorder = reorderable && canKick && list.length > 1;
+
   if (list.length === 0) return <p className="text-sm text-zinc-500">{empty}</p>;
   return (
     <>
       <ul className="flex flex-col divide-y divide-zinc-200 dark:divide-zinc-800">
-        {list.map((p) => (
+        {list.map((p, index) => (
           <li key={p.id} className="flex items-center justify-between gap-2 py-2">
             <span className="flex min-w-0 items-center gap-2">
               <span className="truncate">
@@ -159,6 +180,28 @@ function Members({
               )}
               <OfflineBadge connected={p.connected} />
             </span>
+            {canReorder && (
+              <span className="flex shrink-0 gap-1">
+                <button
+                  type="button"
+                  onClick={() => void move(index, -1)}
+                  disabled={busy !== null || index === 0}
+                  className="min-h-8 min-w-8 rounded-md border border-zinc-300 text-sm disabled:opacity-30 dark:border-zinc-700"
+                  aria-label={`Mută ${p.nickname} mai sus`}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void move(index, 1)}
+                  disabled={busy !== null || index === list.length - 1}
+                  className="min-h-8 min-w-8 rounded-md border border-zinc-300 text-sm disabled:opacity-30 dark:border-zinc-700"
+                  aria-label={`Mută ${p.nickname} mai jos`}
+                >
+                  ↓
+                </button>
+              </span>
+            )}
             {canKick && p.id !== me.id && (
               <button
                 type="button"

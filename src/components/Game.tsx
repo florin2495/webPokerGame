@@ -164,6 +164,23 @@ export function Game({ state, token, refresh }: { state: RoomState; token: strin
         <Standings g={g} isHost={isHost} busy={busy} onNewTournament={() => void run(() => api(`${base}/new-round`, { token, body: {} }))} />
       )}
 
+      {me.role === "observer" && (
+        <Panel>
+          <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">
+            👀 Ești spectator: vezi doar ce e public (nu și cărțile jucătorilor).
+            {me.queued && " Ești la coadă pentru runda următoare."}
+          </p>
+          <Button
+            className="w-full"
+            variant={me.queued ? "secondary" : "primary"}
+            disabled={busy}
+            onClick={() => void run(() => api(`${base}/queue`, { token, body: {} }))}
+          >
+            {me.queued ? "Ieși din coadă" : "Intră la runda următoare"}
+          </Button>
+        </Panel>
+      )}
+
       {mine && mine.cards && g.phase === "betting" && (
         <Panel className={myTurn ? "border-indigo-500 ring-2 ring-indigo-400" : ""}>
           <div className="flex items-center gap-3">

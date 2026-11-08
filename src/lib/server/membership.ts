@@ -1,6 +1,7 @@
 import "server-only";
 import { isKickExpired, KICK_GRACE_MS, KICK_NETWORK_GRACE_MS } from "@/lib/kick";
-import { removeSeat } from "@/lib/poker";
+import { type GameState, removeSeat } from "@/lib/poker";
+import { reportTournament } from "./leaderboard";
 import { notifyRoom } from "./broadcast";
 import { db, type RoomRow, T } from "./db";
 import { getRoomByCode, listPlayers, saveRoom, withRetry } from "./room";
@@ -24,7 +25,7 @@ export async function removePlayer(room: RoomRow, playerId: string, reason: stri
       if (remaining.length === 0) {
         const { error } = await db().from(T.rooms).delete().eq("id", fresh.id);
         if (error) throw error;
-        return { roomClosed: true, newHostId: null as string | null, changedHost: false };
+        return { roomClosed: true, newHostId: null as string | null, changedHost: false, finished: null as GameState | null, round: fresh.round };
       }
 
       const nextHost = remaining.find((p) => p.role === "player") ?? remaining[0];
@@ -36,12 +37,14 @@ export async function removePlayer(room: RoomRow, playerId: string, reason: stri
         update.game = game;
         if (game.phase === "over") update.status = "finished";
       }
+      const finished = update.status === "finished" && update.game ? update.game : null;
       // Update the room first so the host never points at a deleted player.
       await saveRoom(fresh, update);
-      return { roomClosed: false, newHostId, changedHost: newHostId !== fresh.host_player_id };
+      return { roomClosed: false, newHostId, changedHost: newHostId !== fresh.host_player_id, finished, round: fresh.round };
     },
   );
   if (result.roomClosed) return { roomClosed: true };
+  if (result.finished) await reportTournament(room.code, result.round, result.finished);
 
   if (result.changedHost && result.newHostId) {
     const { error } = await db().from(T.players).update({ is_host: true }).eq("id", result.newHostId);

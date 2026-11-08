@@ -1,5 +1,6 @@
 import "server-only";
 import { type GameState, RuleError } from "@/lib/poker";
+import { reportTournament } from "./leaderboard";
 import { notifyRoom } from "./broadcast";
 import type { PlayerRow, RoomRow } from "./db";
 import { fail, handle, readJson } from "./http";
@@ -50,10 +51,11 @@ export function moveHandler(
           throw err;
         }
         await saveRoom(room, { game: next, ...(next.phase === "over" ? { status: "finished" as const } : {}) });
-        return room.id;
+        return { roomId: room.id, code: room.code, round: room.round, over: next.phase === "over" ? next : null };
       },
     );
-    await notifyRoom(roomId, kind);
+    if (roomId.over) await reportTournament(roomId.code, roomId.round, roomId.over);
+    await notifyRoom(roomId.roomId, kind);
     return { ok: true };
   });
 }

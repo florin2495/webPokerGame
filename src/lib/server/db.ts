@@ -57,7 +57,16 @@ export interface PlayerRow {
   kick_requested_at: string | null;
   /** Presence stamp, touched by requireMember. Needs migration 002_reconnect.sql. */
   last_seen_at: string;
+  /** Host-chosen order of the players (migration 003), null = not placed yet. */
+  seat: number | null;
+  /** Observer queued for the next tournament (migration 003). */
+  queued_at: string | null;
 }
 
 /** Never add token_hash / device_hash here: these rows feed the public state. */
-export const PLAYER_COLUMNS = "id, room_id, nickname, is_host, role, joined_at, kick_requested_at, last_seen_at";
+export const PLAYER_COLUMNS = "id, room_id, nickname, is_host, role, joined_at, kick_requested_at, last_seen_at, seat, queued_at";
+
+/** PostgREST / Postgres "relation does not exist" (a table whose migration has not run yet). */
+export function isMissingTable(error: { code?: string } | null): boolean {
+  return error?.code === "42P01" || error?.code === "PGRST205";
+}

@@ -45,12 +45,16 @@ create table if not exists public.poker_players (
   joined_at  timestamptz not null default now(),
   kick_requested_at timestamptz,                             -- pending kick during a tournament (null = none), see migrations/001
   last_seen_at timestamptz not null default now(),           -- presence: disconnected after 45 s, see migrations/002
-  device_hash  text                                          -- sha256 of the browser's device id, see migrations/002
+  device_hash  text,                                         -- sha256 of the browser's device id, see migrations/002
+  seat         integer,                                      -- host-chosen order of the players, see migrations/003
+  queued_at    timestamptz                                   -- observer queued for the next tournament, see migrations/003
 );
 -- Migrations 001/002: also for databases created before the columns existed.
 alter table public.poker_players add column if not exists kick_requested_at timestamptz;
 alter table public.poker_players add column if not exists last_seen_at timestamptz not null default now();
 alter table public.poker_players add column if not exists device_hash text;
+alter table public.poker_players add column if not exists seat integer;
+alter table public.poker_players add column if not exists queued_at timestamptz;
 create unique index if not exists poker_players_room_nickname_uq on public.poker_players (room_id, lower(nickname));
 create index if not exists poker_players_room_idx on public.poker_players (room_id);
 create index if not exists poker_players_room_seen_idx on public.poker_players (room_id, last_seen_at);

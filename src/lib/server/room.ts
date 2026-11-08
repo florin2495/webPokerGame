@@ -26,6 +26,7 @@ import { db, PLAYER_COLUMNS, type PlayerRow, ROOM_COLUMNS, type RoomRow, T } fro
 import { ApiError, fail } from "./http";
 import { enforceExpiredKicks } from "./membership";
 import { kickRemainingMs } from "@/lib/kick";
+import { bySeat } from "@/lib/order";
 import { isConnected, LAST_SEEN_TOUCH_MS } from "@/lib/reconnect";
 
 const GONE = `Camera nu există sau a fost închisă după ${minutesLabel(ROOM_IDLE_MINUTES)} de inactivitate.`;
@@ -119,6 +120,11 @@ export async function listPlayers(roomId: string): Promise<PlayerRow[]> {
   return (data ?? []) as PlayerRow[];
 }
 
+/** The players (not observers) in the order the host arranged them, e.g. the seat order of a new tournament. */
+export async function listSeatedPlayers(roomId: string): Promise<PlayerRow[]> {
+  return bySeat((await listPlayers(roomId)).filter((p) => p.role === "player"));
+}
+
 /**
  * Writes the room only if nobody else changed it since we read it (optimistic lock on
  * `version`). Two actions at the same time: one wins, the other gets a 409 and retries.
@@ -193,6 +199,7 @@ const toPublic = (p: PlayerRow, now: number): PublicPlayer => ({
   role: p.role,
   kickRemainingMs: kickRemainingMs(p.kick_requested_at, now),
   connected: isConnected(p.last_seen_at, now),
+  queued: p.queued_at !== null,
 });
 
 function publicGame(g: GameState, meId: string): PublicGame {
@@ -247,7 +254,7 @@ function publicGame(g: GameState, meId: string): PublicGame {
 
 export async function buildState(room: RoomRow, me: PlayerRow): Promise<RoomState> {
   const players = await listPlayers(room.id);
-  let ordered = players;
+  let ordered = [...bySeat(players.filter((p) => p.role === "player")), ...players.filter((p) => p.role !== "player")];
   if (room.game) {
     const pos = new Map(room.game.seats.map((id, i) => [id, i]));
     ordered = [...players].sort((a, b) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9));
