@@ -22,6 +22,7 @@ so this list is the source of truth. **Update it whenever the user confirms a mi
 | `supabase/schema.sql` (initial) | no | `poker_rooms`, `poker_players` (with `role`: player / observer) |
 | `supabase/migrations/001_pending_kick.sql` | yes (2026-11-07, verified) | `poker_players.kick_requested_at timestamptz` (host kick during a game = 10 s pending kick, "Ignoră"). Code needs it: do not push before it ran |
 | `supabase/migrations/002_reconnect.sql` | yes (2026-11-07, verified: service role 200, anon 401) | `poker_players.last_seen_at`, `device_hash` + index (rejoin the same seat). Code needs it: do not push before it ran |
+| `supabase/migrations/003_seat_queue.sql` | yes (2026-11-08, verified: `seat`, `queued_at` readable with the service key) | `poker_players.seat` (host reorder = seat order), `queued_at` (observer queue "Intră la runda următoare"). Code needs it |
 
 Rules for schema changes:
 - Every object of this game is prefixed `poker_` (tables, constraints, indexes). Table names live in `T`
@@ -48,6 +49,8 @@ Rules for schema changes:
   re-joining with an existing nickname reclaims that membership (same player id = same seat and chips, same role,
   new token, pending kick cleared) from the same device (`device_hash`) or once it has been unseen for 45 s, also
   mid-tournament. A disconnected seat keeps being folded by the turn timer as before. `/state` exposes only `connected`.
+- Reorder (`/reorder`, host, lobby only) saves `seat`; `/start` uses it (never arranged = host first). Observers toggle `/queue`; `/new-round` promotes queued observers in queue order while < 16 players.
+- Leaderboard: at tournament end `src/lib/server/leaderboard.ts` upserts the hub's `hub_leaderboard*` (game `poker`, idempotent per room+round, best effort).
 - Realtime: Broadcast topic `poker:room:<uuid>` carries no data, clients re-fetch `/state`; 15 s polling fallback.
 
 ## Testing
