@@ -138,14 +138,22 @@ export function Game({ state, token, refresh }: { state: RoomState; token: strin
 
   return (
     <>
-      <BlindBar g={g} now={now} />
+      <PlayerStrip g={g} />
 
       <div className="rounded-2xl bg-emerald-800 p-3 text-white shadow-inner dark:bg-emerald-950">
         <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-emerald-100">
           <span>
             Mâna #{g.handNo} · {g.phase === "betting" ? STREET_LABEL[g.street] : g.phase === "over" ? "Final" : "Rezultat"}
           </span>
-          <span>Pot: {fmt(g.phase === "betting" ? g.pot : (g.last?.pots.reduce((a, p) => a + p.amount, 0) ?? 0))}</span>
+          <span>
+            Blind {fmt(g.sb)}/{fmt(g.bb)}
+          </span>
+        </div>
+        <div className="mb-2 text-center">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200">Pot</span>
+          <p className="font-mono text-3xl leading-none font-black">
+            {fmt(g.phase === "betting" ? g.pot : (g.last?.pots.reduce((a, p) => a + p.amount, 0) ?? 0))}
+          </p>
         </div>
         <div className="flex justify-center gap-1.5">
           {Array.from({ length: 5 }, (_, i) =>
@@ -213,6 +221,8 @@ export function Game({ state, token, refresh }: { state: RoomState; token: strin
         </Panel>
       )}
 
+      <BlindBar g={g} now={now} />
+
       {mine && g.myAuto && mine.place === null && g.phase !== "over" && (
         <AutoOptions
           value={g.myAuto}
@@ -252,6 +262,54 @@ export function Game({ state, token, refresh }: { state: RoomState; token: strin
 
       <HandLog g={g} />
     </>
+  );
+}
+
+/** Who acts after seat `i`: the next seat still in the tournament (and, mid-hand, still able to act). */
+function nextAfter(g: PublicGame, i: number): number | null {
+  const n = g.seats.length;
+  for (let k = 1; k < n; k++) {
+    const j = (i + k) % n;
+    const s = g.seats[j];
+    if (s.place !== null || s.left) continue;
+    if (g.phase === "betting" && (s.folded || s.allIn || !s.dealt)) continue;
+    return j;
+  }
+  return null;
+}
+
+/** All players left to right in seat order; the one on turn has the selected frame, "→ name" says who follows. */
+function PlayerStrip({ g }: { g: PublicGame }) {
+  const listRef = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    if (g.phase !== "betting" || g.turn < 0) return;
+    const el = listRef.current?.children[g.turn] as HTMLElement | undefined;
+    const box = listRef.current;
+    if (el && box) box.scrollTo({ left: el.offsetLeft - box.clientWidth / 2 + el.clientWidth / 2, behavior: "smooth" });
+  }, [g.turn, g.turnKey, g.phase]);
+
+  return (
+    <ul ref={listRef} className="flex gap-2 overflow-x-auto pb-1" aria-label="Jucători în ordine">
+      {g.seats.map((s, i) => {
+        const turn = g.phase === "betting" && g.turn === i;
+        const out = (s.place !== null && !(g.phase === "over" && s.place === 1)) || s.left;
+        const nxt = out || g.phase === "over" ? null : nextAfter(g, i);
+        return (
+          <li
+            key={s.playerId}
+            className={`flex w-[4.75rem] shrink-0 flex-col items-center rounded-lg border px-1 py-1 text-center ${
+              turn
+                ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-400 dark:bg-indigo-950"
+                : "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950"
+            } ${out || (s.folded && g.phase === "betting") ? "opacity-50" : ""} ${i === g.mySeat ? "outline-2 outline-offset-1 outline-emerald-500" : ""}`}
+          >
+            <span className="w-full truncate text-xs font-bold">{s.name}</span>
+            <span className="font-mono text-[11px] text-zinc-600 dark:text-zinc-400">{out ? "—" : fmt(s.stack)}</span>
+            <span className="w-full truncate text-[9px] leading-3 text-zinc-500">{nxt !== null ? `→ ${g.seats[nxt].name}` : " "}</span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
