@@ -57,7 +57,17 @@ function actionLabel(e: LogEntry): string {
   }
 }
 
-export function Game({ state, token, refresh }: { state: RoomState; token: string; refresh: () => Promise<void> }) {
+interface GameProps {
+  state: RoomState;
+  token: string;
+  refresh: () => Promise<void>;
+  /** Shows the state a write returned, without a /state fetch. */
+  apply: (s: RoomState) => void;
+  /** Instant local guess until the server answers (rolled back by refresh on error). */
+  optimistic: (fn: (s: RoomState) => RoomState) => void;
+}
+
+export function Game({ state, token, refresh, apply, optimistic }: GameProps) {
   const g = state.game!;
   const { room, me } = state;
   const isHost = room.hostPlayerId === me.id;
@@ -72,8 +82,11 @@ export function Game({ state, token, refresh }: { state: RoomState; token: strin
     setBusy(true);
     setError("");
     try {
-      await fn();
-      await refresh();
+      const res = await fn();
+      // Moves answer with the new state: no second request. Other writes still re-fetch.
+      const fresh = (res as { state?: RoomState } | null)?.state;
+      if (fresh) apply(fresh);
+      else await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Eroare.");
       void refresh();
@@ -215,7 +228,24 @@ export function Game({ state, token, refresh }: { state: RoomState; token: strin
               g={g}
               options={g.options}
               busy={busy}
-              onAct={(kind, amount) => void run(() => api(`${base}/action`, { token, body: { kind, amount } }))}
+              onAct={(kind, amount) => {
+                // My move shows up at once: the bar closes (and a fold greys my cards) before the server answers.
+                optimistic((s) => {
+                  const game = s.game;
+                  if (!game || game.mySeat === null) return s;
+                  const me = game.mySeat;
+                  return {
+                    ...s,
+                    game: {
+                      ...game,
+                      turn: -1,
+                      options: null,
+                      seats: kind === "fold" ? game.seats.map((x, i) => (i === me ? { ...x, folded: true } : x)) : game.seats,
+                    },
+                  };
+                });
+                void run(() => api<{ state?: RoomState }>(`${base}/action`, { token, body: { kind, amount } }));
+              }}
             />
           )}
         </Panel>

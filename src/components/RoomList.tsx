@@ -19,14 +19,18 @@ export function RoomList({
 }) {
   const [rooms, setRooms] = useState<RoomListItem[] | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await api<{ rooms: RoomListItem[] }>("/api/rooms");
       setRooms(res.rooms);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Eroare.");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -40,18 +44,43 @@ export function RoomList({
     };
   }, [load]);
 
+  const refreshButton = (
+    <button
+      type="button"
+      onClick={() => void load()}
+      aria-label="Reîncarcă camerele"
+      title="Reîncarcă camerele"
+      className="absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="20"
+        height="20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        className={loading ? "animate-spin" : ""}
+      >
+        <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+        <path d="M21 3v6h-6" />
+      </svg>
+    </button>
+  );
+
+  let body;
   if (rooms === null) {
-    return <p className="py-4 text-center text-sm text-zinc-500">{error || "Caut camere…"}</p>;
-  }
-  if (rooms.length === 0) {
-    return (
+    body = <p className="py-4 text-center text-sm text-zinc-500">{error || "Caut camere…"}</p>;
+  } else if (rooms.length === 0) {
+    body = (
       <p className="py-4 text-center text-sm text-zinc-500">
         Nicio cameră deschisă acum. Creează una sau introdu un cod mai jos.
       </p>
     );
-  }
-
-  return (
+  } else {
+    body = (
     <ul className="flex flex-col gap-2">
       {rooms.map((r) => {
         const mine = parseSession(readSessionRaw(r.code)) !== null;
@@ -73,11 +102,21 @@ export function RoomList({
                   {r.hasPassword && <span aria-label="cu parolă">🔒 </span>}
                   {r.name}
                 </span>
+                <span
+                  className={`mt-0.5 inline-block rounded px-1.5 text-[10px] font-bold uppercase ${
+                    r.status === "playing"
+                      ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                      : r.status === "finished"
+                        ? "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                        : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                  }`}
+                >
+                  {r.status === "playing" ? "În joc" : r.status === "finished" ? "Terminat" : "Lobby"}
+                </span>
                 <span className="block text-xs text-zinc-500">
                   {r.settings.buyIn} jetoane · {r.settings.smallBlind}/{r.settings.bigBlind} · {r.players}{" "}
                   {r.players === 1 ? "jucător" : "jucători"}
                   {r.observers > 0 && ` · ${r.observers} ${r.observers === 1 ? "observator" : "observatori"}`}
-                  {r.status === "playing" && " · în joc"}
                 </span>
               </span>
               <span className="shrink-0 text-right">
@@ -91,5 +130,13 @@ export function RoomList({
         );
       })}
     </ul>
+    );
+  }
+
+  return (
+    <div className="relative">
+      {refreshButton}
+      <div className="min-h-9">{body}</div>
+    </div>
   );
 }

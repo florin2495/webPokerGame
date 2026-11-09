@@ -4,7 +4,7 @@ import { reportTournament } from "./leaderboard";
 import { notifyRoom } from "./broadcast";
 import type { PlayerRow, RoomRow } from "./db";
 import { fail, handle, readJson } from "./http";
-import { requireMember, requireStatus, saveRoom, withRetry } from "./room";
+import { buildState, requireMember, requireStatus, saveRoom, withRetry } from "./room";
 
 export interface MoveContext {
   room: RoomRow;
@@ -50,12 +50,16 @@ export function moveHandler(
           if (err instanceof RuleError) fail(409, err.message);
           throw err;
         }
-        await saveRoom(room, { game: next, ...(next.phase === "over" ? { status: "finished" as const } : {}) });
-        return { roomId: room.id, code: room.code, round: room.round, over: next.phase === "over" ? next : null };
+        const status = next.phase === "over" ? ("finished" as const) : room.status;
+        await saveRoom(room, { game: next, status });
+        // What the room looks like right after this write, for the caller's own screen.
+        const after: RoomRow = { ...room, game: next, status, version: room.version + 1 };
+        return { roomId: room.id, code: room.code, round: room.round, over: next.phase === "over" ? next : null, after, player };
       },
     );
     if (roomId.over) await reportTournament(roomId.code, roomId.round, roomId.over);
-    await notifyRoom(roomId.roomId, kind);
-    return { ok: true };
+    // The caller gets the new state back: no /state round trip after its own move.
+    const [state] = await Promise.all([buildState(roomId.after, roomId.player), notifyRoom(roomId.roomId, kind)]);
+    return { ok: true, state };
   });
 }

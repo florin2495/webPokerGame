@@ -261,6 +261,7 @@ export async function buildState(room: RoomRow, me: PlayerRow): Promise<RoomStat
   }
   const now = Date.now();
   return {
+    version: room.version,
     room: {
       id: room.id,
       code: room.code,

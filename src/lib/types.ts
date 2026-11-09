@@ -78,6 +78,8 @@ export interface PublicGame {
 
 /** What GET /api/rooms/[code]/state returns to a member. */
 export interface RoomState {
+  /** Room write counter: a state older than the one on screen is never shown. */
+  version: number;
   room: {
     id: string;
     code: string;

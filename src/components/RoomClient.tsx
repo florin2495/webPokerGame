@@ -54,17 +54,23 @@ function useRoomState(code: string, token: string) {
   const [state, setState] = useState<RoomState | null>(null);
   const [error, setError] = useState("");
   const [missing, setMissing] = useState(false);
-  const latest = useRef(0);
+  const latest = useRef(0); // id of the last request started
+  const applied = useRef(0); // id of the request (or local patch) the screen shows
+  const shownVersion = useRef(-1); // room version on screen
 
   const refresh = useCallback(async () => {
     const id = ++latest.current;
     try {
       const s = await api<RoomState>(`/api/rooms/${code}/state`, { token });
-      if (id !== latest.current) return; // a newer request already answered
+      // Show any answer newer than what is on screen (not only the latest request: that made every
+      // action wait for a second /state). An older room version never replaces a newer one.
+      if (id <= applied.current || s.version < shownVersion.current) return;
+      applied.current = id;
+      shownVersion.current = s.version;
       setState({ ...s, clockOffset: s.serverNow - Date.now() });
       setError("");
     } catch (err) {
-      if (id !== latest.current) return;
+      if (id <= applied.current) return;
       if (err instanceof ApiRequestError && err.status === 401) {
         // Another tab may already hold a newer token for this room (seat reclaimed): keep that one.
         if (parseSession(readSessionRaw(code))?.token !== token) return;
@@ -77,6 +83,23 @@ function useRoomState(code: string, token: string) {
       }
     }
   }, [code, token]);
+
+  /**
+   * Shows the state a write (my own move) just returned, without a /state round trip.
+   * /state answers requested before it are older, so they are dropped.
+   */
+  const apply = useCallback((s: RoomState) => {
+    if (s.version < shownVersion.current) return;
+    applied.current = latest.current;
+    shownVersion.current = s.version;
+    setState({ ...s, clockOffset: s.serverNow - Date.now() });
+    setError("");
+  }, []);
+
+  /** Instant local guess shown until the server answers; refresh() reconciles it. */
+  const optimistic = useCallback((fn: (s: RoomState) => RoomState) => {
+    setState((s) => (s ? fn(s) : s));
+  }, []);
 
   // Bumping this tears the Realtime channel down and subscribes again (phones kill sockets in the background).
   const [reconnectKey, setReconnectKey] = useState(0);
@@ -137,11 +160,11 @@ function useRoomState(code: string, token: string) {
     };
   }, [roomId, refresh, reconnectKey]);
 
-  return { state, error, missing, refresh };
+  return { state, error, missing, refresh, apply, optimistic };
 }
 
 function Room({ code, token }: { code: string; token: string }) {
-  const { state, error, missing, refresh } = useRoomState(code, token);
+  const { state, error, missing, refresh, apply, optimistic } = useRoomState(code, token);
 
   if (missing) {
     return (
@@ -176,7 +199,7 @@ function Room({ code, token }: { code: string; token: string }) {
       {state.room.status === "lobby" ? (
         <Lobby state={state} token={token} refresh={refresh} />
       ) : (
-        <Game state={state} token={token} refresh={refresh} />
+        <Game state={state} token={token} refresh={refresh} apply={apply} optimistic={optimistic} />
       )}
       <SettingsPanel />
       <LeaveButton state={state} token={token} />

@@ -114,7 +114,7 @@ export function Home() {
 
       {tab === "join" && (
         <Card>
-          <h2 className="mb-3 font-bold">Camere deschise</h2>
+          <h2 className="mb-3 pr-10 font-bold">Camere deschise</h2>
           <RoomList selected={pickedNow?.code ?? null} onSelect={pickRoom} onRejoin={(c) => router.push(`/room/${c}`)} />
         </Card>
       )}
