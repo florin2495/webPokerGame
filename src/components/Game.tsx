@@ -162,6 +162,17 @@ export function Game({ state, token, refresh, apply, optimistic }: GameProps) {
             Blind {fmt(g.sb)}/{fmt(g.bb)}
           </span>
         </div>
+        {g.phase === "betting" && g.turn >= 0 && (
+          <p className="mb-1 text-center text-sm">
+            {myTurn ? (
+              <strong className="text-amber-300">Tura ta</strong>
+            ) : (
+              <>
+                Tura lui <strong>{g.seats[g.turn]?.name ?? "—"}</strong>
+              </>
+            )}
+          </p>
+        )}
         <div className="mb-2 text-center">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200">Pot</span>
           <p className="font-mono text-3xl leading-none font-black">
