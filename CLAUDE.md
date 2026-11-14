@@ -33,6 +33,12 @@ Rules for schema changes:
   service key from `.env.local`.
 - Never print or commit the keys in `.env.local`.
 
+## Abandoned rooms (120 s)
+- `GET /api/rooms` (the room list behind "Intră în cameră") first runs `cleanupAbandonedRooms` (`src/lib/server/room.ts`):
+  every room in ANY status (also `playing`) whose `last_activity_at` is older than `ROOM_ABANDONED_MS` (120 s, `poker.ts`)
+  and with no member (player or observer) `last_seen_at` within 120 s is deleted (members cascade). Open room pages keep
+  both fresh (`/state` polls every 15 s), so only rooms nobody has open disappear. The 10/60-minute idle expiry stays too.
+
 ## Design
 - Pure rules in `src/lib/poker.ts`: hand evaluation, No-Limit betting (min raise, short all-in does not reopen),
   side pots, uncalled-bet refund, blind levels (`hands` / `orbit` / `minutes`), eliminations and places.
