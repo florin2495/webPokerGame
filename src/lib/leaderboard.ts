@@ -8,7 +8,7 @@ export interface LeaderboardEntry {
 
 /** No accounts: the same nickname (lower-case, trimmed) is the same person. */
 export function playerKey(nickname: string): string {
-  return nickname.trim().toLowerCase();
+  return nickname.trim().toLowerCase().slice(0, 40);
 }
 
 /** Everyone who started the tournament (also those who left) gets a game; the winning seat also a win. */
