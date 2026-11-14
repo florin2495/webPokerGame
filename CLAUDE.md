@@ -3,7 +3,7 @@
 # webPokerGame - project notes for Claude
 
 ## Accounts and deploy
-- GitHub: personal account **florin2495** only (repo `florin2495/webPokerGame`, private). Never the work account.
+- GitHub: personal account **florin2495** only (repo `florin2495/webPokerGame`, public). Never the work account.
   Local git identity is pinned in `.git/config`.
 - Vercel project is connected by hand by the user; production URL: https://games.hailatat.icu/poker
   (basePath `/poker`; the hub proxies `/poker/*` to this project)
@@ -59,9 +59,45 @@ Rules for schema changes:
 - Leaderboard: at tournament end `src/lib/server/leaderboard.ts` upserts the hub's `hub_leaderboard*` (game `poker`, idempotent per room+round, best effort).
 - Realtime: Broadcast topic `poker:room:<uuid>` carries no data, clients re-fetch `/state`; 15 s polling fallback.
 
-## Testing
-- `npm test` (Vitest, `src/lib/poker.test.ts` incl. random full tournaments with 2-16 players), `npx tsc --noEmit`,
-  `npx eslint src`, `npx next build`.
-- End-to-end: drive the real API with 3+ players and an observer (create, join, role, settings, start, action through
-  a whole hand incl. all-in and side pot, timeout, next, leave mid-hand, kick, new-round) against `npm run dev`.
-  Delete the test rooms afterwards.
+## Testing (GitHub Actions, manual only)
+All checks run in GitHub Actions on the free tier (public repo, standard `ubuntu-latest` runners only, never billed
+runners), never locally (user's rule, see `D:\_DEv\CLAUDE.md`). Every workflow is `workflow_dispatch` only (no automatic
+trigger, the user's choice): nothing gates a push, and Vercel deploys `main` regardless.
+Start one with `gh workflow run <file> --ref main`, then `gh run watch` (or the Actions tab, "Run workflow").
+| Workflow | Runs |
+| --- | --- |
+| `.github/workflows/check.yml` "Check code" | `npx next typegen` + `npx tsc --noEmit` (typegen first, so route types in `.next/types` are checked), `npx eslint src`, `npx next build`. Every step runs even if an earlier one failed |
+| `.github/workflows/unit-tests.yml` "Unit tests" | `npm test` (Vitest: `src/lib/poker.test.ts` incl. random full tournaments with 2-16 players, `kick`, `reconnect`, `order`, `leaderboard` tests; pure logic, no DB) |
+| `.github/workflows/e2e.yml` "E2E" | `node scripts/e2e.mjs <base_url>` (input, default production `https://games.hailatat.icu/poker`); one run at a time |
+| `.github/workflows/e2e-ui.yml` "E2E UI (Playwright)" | `npx playwright test` (`playwright.config.ts`, tests in `tests/ui/*.e2e.ts`) against `base_url` (`E2E_BASE_URL`, default production), on desktop Chromium and an emulated iPhone 13 (WebKit). Same concurrency group as "E2E". On failure the report (traces, screenshots, videos) is uploaded as the `playwright-report` artifact |
+
+- E2E needs the repo secrets `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (only for the cleanup safety net;
+  locally the script falls back to `.env.local`). It checks that the deployed client JS contains the `package.json`
+  version of the checked-out ref, so run it on `main` after the Vercel deploy of that version has finished.
+- What E2E does: checks page / `_next` assets / version / manifest / icons / `room/XXXXXX` over HTTP and that
+  `010web-poker-game.vercel.app/poker` serves the same build, then drives the real API (production DB) with 5 players and
+  an observer: create (password), wrong / missing password, join, nickname taken (409), public room list, rejoin (same
+  device, old token dead), settings validation, observer sits down / stands up, start, private hole cards (observer
+  sees none, no deck in the state), wrong turn / observer / bad token / unknown kind / illegal check / raise below min,
+  above stack or fractional, double click, host skip, a hand to showdown with chips conserved and pot shares, next hand,
+  auto options, mid-game joiner = observer, leave mid-hand, kick with "Ignoră" then enforced, observer kick, play to the
+  end (unique places, winner has every chip), new round. Rooms are named `e2e-test-…` and deleted at the end; it never
+  writes feedback (only an empty one, rejected with 400).
+- What E2E UI does (`tests/ui/`, shared steps in `helpers.ts`; every change must reach the other screens within 5 s
+  without a reload, polling is 15 s, so this checks Realtime). Cards are random: the tests read whose turn it is from the
+  screens (the action bar) and play all-in (or call / check), so heads-up the first hand that is not a split ends it.
+  - `game.e2e.ts` (both projects): two browser contexts (= two devices): create with a password, join by link, start,
+    own 2 cards, every turn shows "Tura ta" on the actor's screen and "Tura lui <name>" on the other, hand results,
+    "Împarte acum", standings on both, "Turneu nou" followed live into the lobby, leave.
+  - `spectator.e2e.ts` (desktop Chromium only): a third person joins mid-tournament = observer (no hand, no action bar),
+    sees every turn live, queues ("Intră la runda următoare"), sees the standings, and "Turneu nou" seats them.
+  - `mobile.e2e.ts` (iPhone only): no horizontal scroll on home / lobby / table, action buttons >= 24 px, a touch tap on
+    Call plays it and the other phone gets the turn live.
+  Rooms are `e2e-test-ui-…`; a leftover is deleted with the service key from the same repo secrets.
+- Playwright files are `*.e2e.ts`, never `*.spec.ts` / `*.test.ts` (Vitest would pick those up).
+- The UI tests find elements by `data-testid`: `home-submit` (Home), `join-player`, `join-observer`, `leave`, `room-code`
+  (RoomClient), `lobby-players`, `lobby-observers`, `role-toggle`, `start-game` (Lobby), `turn-label`, `pot`,
+  `player-strip`, `my-hand`, `action-bar`, `act-fold`, `act-call`, `act-raise`, `preset-allin`, `hand-result`,
+  `next-hand`, `standings`, `new-tournament`, `observer-panel`, `queue-toggle` (Game), and form fields by their labels
+  ("Numele camerei", "Nickname-ul tău", "Parolă (opțional)", "Parolă (dacă are camera)"). Renaming or removing one
+  breaks `tests/ui`.

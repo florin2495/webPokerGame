@@ -46,7 +46,7 @@ export function Lobby({ state, token, refresh }: { state: RoomState; token: stri
 
   return (
     <>
-      <Card>
+      <Card data-testid="lobby-players">
         <div className="mb-2 flex items-baseline justify-between">
           <h2 className="font-bold">🃏 La masă</h2>
           <span className="text-sm text-zinc-500">
@@ -61,7 +61,7 @@ export function Lobby({ state, token, refresh }: { state: RoomState; token: stri
         )}
       </Card>
 
-      <Card>
+      <Card data-testid="lobby-observers">
         <div className="mb-2 flex items-baseline justify-between">
           <h2 className="font-bold">👀 Observatori</h2>
           <span className="text-sm text-zinc-500">
@@ -71,7 +71,7 @@ export function Lobby({ state, token, refresh }: { state: RoomState; token: stri
         <Members list={watching} state={state} token={token} refresh={refresh} empty="Niciun observator. Poate intra oricine și în timpul turneului." />
       </Card>
 
-      <Button variant="secondary" onClick={() => void switchRole()} disabled={busy}>
+      <Button variant="secondary" onClick={() => void switchRole()} disabled={busy} data-testid="role-toggle">
         {me.role === "player" ? "👀 Mă ridic de la masă (doar mă uit)" : "🃏 Mă așez la masă"}
       </Button>
 
@@ -94,7 +94,7 @@ export function Lobby({ state, token, refresh }: { state: RoomState; token: stri
 
       <ErrorText>{error}</ErrorText>
       {isHost ? (
-        <Button onClick={() => void start()} disabled={busy || !canStart}>
+        <Button onClick={() => void start()} disabled={busy || !canStart} data-testid="start-game">
           {dirty
             ? "Salvează întâi regulile"
             : n < MIN_PLAYERS

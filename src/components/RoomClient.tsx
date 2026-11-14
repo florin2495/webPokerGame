@@ -245,7 +245,7 @@ function LeaveButton({ state, token }: { state: RoomState; token: string }) {
 
   return (
     <div className="pb-6 pt-2 text-center">
-      <Button variant="danger" className="w-full" onClick={() => void leave()} disabled={busy}>
+      <Button variant="danger" className="w-full" onClick={() => void leave()} disabled={busy} data-testid="leave">
         {busy ? "Se iese…" : stillIn ? "Părăsește turneul" : "Părăsește camera"}
       </Button>
       <div className="mt-2">
@@ -295,6 +295,7 @@ function RoomHeader({ state }: { state: RoomState }) {
         onClick={() => void invite()}
         className="shrink-0 rounded-lg border border-zinc-300 px-3 py-1.5 text-center dark:border-zinc-700"
         aria-label="Invită prieteni"
+        data-testid="room-code"
       >
         <span className="block font-mono text-lg font-bold tracking-widest">{room.code}</span>
         <span className="block text-[10px] font-semibold uppercase text-zinc-500">
@@ -362,10 +363,10 @@ function JoinForm({ code }: { code: string }) {
           />
           <ErrorText>{error}</ErrorText>
           <div className="grid grid-cols-2 gap-2">
-            <Button type="submit" value="player" disabled={busy}>
+            <Button type="submit" value="player" disabled={busy} data-testid="join-player">
               {busy && role === "player" ? "Se încarcă…" : "🃏 La masă"}
             </Button>
-            <Button type="submit" value="observer" variant="secondary" disabled={busy}>
+            <Button type="submit" value="observer" variant="secondary" disabled={busy} data-testid="join-observer">
               {busy && role === "observer" ? "Se încarcă…" : "👀 Observator"}
             </Button>
           </div>

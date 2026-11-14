@@ -169,7 +169,7 @@ export function Home() {
           )}
 
           <ErrorText>{error}</ErrorText>
-          <Button type="submit" disabled={busy || (tab === "create" && settingsError(settings) !== null)}>
+          <Button type="submit" disabled={busy || (tab === "create" && settingsError(settings) !== null)} data-testid="home-submit">
             {busy ? "Se încarcă…" : tab === "create" ? "Creează camera" : onlyWatch || role === "observer" ? "Intră ca observator" : "Intră la masă"}
           </Button>
         </form>

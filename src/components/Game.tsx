@@ -163,7 +163,7 @@ export function Game({ state, token, refresh, apply, optimistic }: GameProps) {
           </span>
         </div>
         {g.phase === "betting" && g.turn >= 0 && (
-          <p className="mb-1 text-center text-sm">
+          <p className="mb-1 text-center text-sm" data-testid="turn-label">
             {myTurn ? (
               <strong className="text-amber-300">Tura ta</strong>
             ) : (
@@ -175,7 +175,7 @@ export function Game({ state, token, refresh, apply, optimistic }: GameProps) {
         )}
         <div className="mb-2 text-center">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200">Pot</span>
-          <p className="font-mono text-3xl leading-none font-black">
+          <p className="font-mono text-3xl leading-none font-black" data-testid="pot">
             {fmt(g.phase === "betting" ? g.pot : (g.last?.pots.reduce((a, p) => a + p.amount, 0) ?? 0))}
           </p>
         </div>
@@ -197,7 +197,7 @@ export function Game({ state, token, refresh, apply, optimistic }: GameProps) {
       )}
 
       {me.role === "observer" && (
-        <Panel>
+        <Panel data-testid="observer-panel">
           <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">
             👀 Ești spectator: vezi doar ce e public (nu și cărțile jucătorilor).
             {me.queued && " Ești la coadă pentru runda următoare."}
@@ -205,6 +205,7 @@ export function Game({ state, token, refresh, apply, optimistic }: GameProps) {
           <Button
             className="w-full"
             variant={me.queued ? "secondary" : "primary"}
+            data-testid="queue-toggle"
             disabled={busy}
             onClick={() => void run(() => api(`${base}/queue`, { token, body: {} }))}
           >
@@ -214,7 +215,7 @@ export function Game({ state, token, refresh, apply, optimistic }: GameProps) {
       )}
 
       {mine && mine.cards && g.phase === "betting" && (
-        <Panel className={myTurn ? "border-indigo-500 ring-2 ring-indigo-400" : ""}>
+        <Panel className={myTurn ? "border-indigo-500 ring-2 ring-indigo-400" : ""} data-testid="my-hand">
           <div className="flex items-center gap-3">
             <div className="flex gap-1.5">
               {mine.cards.map((c) => (
@@ -330,7 +331,7 @@ function PlayerStrip({ g }: { g: PublicGame }) {
   }, [g.turn, g.turnKey, g.phase]);
 
   return (
-    <ul ref={listRef} className="flex gap-2 overflow-x-auto pb-1" aria-label="Jucători în ordine">
+    <ul ref={listRef} className="flex gap-2 overflow-x-auto pb-1" aria-label="Jucători în ordine" data-testid="player-strip">
       {g.seats.map((s, i) => {
         const turn = g.phase === "betting" && g.turn === i;
         const out = (s.place !== null && !(g.phase === "over" && s.place === 1)) || s.left;
@@ -592,7 +593,7 @@ function ActionBar({
   }
 
   return (
-    <div className="mt-3 flex flex-col gap-2">
+    <div className="mt-3 flex flex-col gap-2" data-testid="action-bar">
       {o.canRaise && o.maxRaiseTo > o.minRaiseTo && (
         <div className="flex flex-col gap-2">
           <div className="grid grid-cols-4 gap-1">
@@ -600,6 +601,7 @@ function ActionBar({
               <button
                 key={label}
                 type="button"
+                data-testid={label === "All-in" ? "preset-allin" : undefined}
                 onClick={() => setTo(v)}
                 className={`min-h-9 rounded-md border text-xs font-semibold ${
                   to === v ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950" : "border-zinc-300 dark:border-zinc-700"
@@ -635,14 +637,14 @@ function ActionBar({
         </div>
       )}
       <div className="grid grid-cols-3 gap-2">
-        <Button variant="danger" disabled={busy} onClick={fold}>
+        <Button variant="danger" disabled={busy} onClick={fold} data-testid="act-fold">
           Fold
         </Button>
-        <Button variant="secondary" disabled={busy} onClick={call}>
+        <Button variant="secondary" disabled={busy} onClick={call} data-testid="act-call">
           {o.canCheck ? "Check" : callIsAllIn ? `All-in ${fmt(o.callAmount)}` : `Call ${fmt(o.callAmount)}`}
         </Button>
         {o.canRaise ? (
-          <Button disabled={busy || to < o.minRaiseTo || to > o.maxRaiseTo} onClick={raise}>
+          <Button disabled={busy || to < o.minRaiseTo || to > o.maxRaiseTo} onClick={raise} data-testid="act-raise">
             {raiseIsAllIn ? `All-in ${fmt(o.maxRaiseTo)}` : `${isBet ? "Bet" : "Raise"} ${fmt(to)}`}
           </Button>
         ) : (
@@ -659,7 +661,7 @@ function HandResult({ g, now, isHost, busy, onNext }: { g: PublicGame; now: numb
   const hands = new Map(last.shown.map((h) => [h.seat, h]));
   const left = g.nextHandAt !== null && now > 0 ? Math.max(0, Math.ceil((g.nextHandAt - now) / 1000)) : null;
   return (
-    <Panel className="border-amber-400">
+    <Panel className="border-amber-400" data-testid="hand-result">
       <h2 className="mb-2 font-bold">Rezultatul mâinii #{last.handNo}</h2>
       {last.foldWin ? (
         <p>
@@ -692,7 +694,7 @@ function HandResult({ g, now, isHost, busy, onNext }: { g: PublicGame; now: numb
         <div className="mt-3 flex items-center justify-between gap-2">
           <span className="text-sm text-zinc-500">{left !== null && left > 0 ? `Mâna următoare în ${left} s…` : "Se împart cărțile…"}</span>
           {isHost && (
-            <Button className="min-h-9 py-1 text-sm" disabled={busy} onClick={onNext}>
+            <Button className="min-h-9 py-1 text-sm" disabled={busy} onClick={onNext} data-testid="next-hand">
               Împarte acum
             </Button>
           )}
@@ -705,7 +707,7 @@ function HandResult({ g, now, isHost, busy, onNext }: { g: PublicGame; now: numb
 function Standings({ g, isHost, busy, onNewTournament }: { g: PublicGame; isHost: boolean; busy: boolean; onNewTournament: () => void }) {
   const ranked = g.seats.map((s, i) => ({ s, i })).sort((a, b) => (a.s.place ?? 99) - (b.s.place ?? 99));
   return (
-    <Panel>
+    <Panel data-testid="standings">
       <h2 className="mb-2 text-lg font-black">
         {g.winner !== null ? `🏆 ${g.seats[g.winner].name} a câștigat turneul!` : "Turneul s-a încheiat."}
       </h2>
@@ -725,7 +727,7 @@ function Standings({ g, isHost, busy, onNewTournament }: { g: PublicGame; isHost
       <p className="mt-2 text-xs text-zinc-500">{g.handNo} mâini jucate, ultimul nivel de blind-uri {fmt(g.sb)}/{fmt(g.bb)}.</p>
       <div className="mt-3">
         {isHost ? (
-          <Button className="w-full" disabled={busy} onClick={onNewTournament}>
+          <Button className="w-full" disabled={busy} onClick={onNewTournament} data-testid="new-tournament">
             Turneu nou (înapoi în lobby)
           </Button>
         ) : (
