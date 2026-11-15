@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { api } from "@/lib/client/api";
-import { MAX_OBSERVERS, MAX_PLAYERS, MIN_PLAYERS, minutesLabel, ROOM_IDLE_MINUTES, type Settings, settingsError } from "@/lib/poker";
+import { MAX_PLAYERS, MIN_PLAYERS, minutesLabel, ROOM_IDLE_MINUTES, type Settings, settingsError } from "@/lib/poker";
 import type { PublicPlayer, RoomState } from "@/lib/types";
 import { SettingsForm } from "./SettingsForm";
 import { Button, Card, ErrorText, OfflineBadge } from "./ui";
@@ -65,7 +65,7 @@ export function Lobby({ state, token, refresh }: { state: RoomState; token: stri
         <div className="mb-2 flex items-baseline justify-between">
           <h2 className="font-bold">👀 Observatori</h2>
           <span className="text-sm text-zinc-500">
-            {watching.length}/{MAX_OBSERVERS}
+            {watching.length} {watching.length === 1 ? "observator" : "observatori"}
           </span>
         </div>
         <Members list={watching} state={state} token={token} refresh={refresh} empty="Niciun observator. Poate intra oricine și în timpul turneului." />
