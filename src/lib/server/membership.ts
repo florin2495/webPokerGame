@@ -44,7 +44,7 @@ export async function removePlayer(room: RoomRow, playerId: string, reason: stri
     },
   );
   if (result.roomClosed) return { roomClosed: true };
-  if (result.finished) await reportTournament(room.code, result.round, result.finished);
+  if (result.finished) await reportTournament({ code: room.code, name: room.name, round: result.round }, result.finished);
 
   if (result.changedHost && result.newHostId) {
     const { error } = await db().from(T.players).update({ is_host: true }).eq("id", result.newHostId);

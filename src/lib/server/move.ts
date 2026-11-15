@@ -54,10 +54,10 @@ export function moveHandler(
         await saveRoom(room, { game: next, status });
         // What the room looks like right after this write, for the caller's own screen.
         const after: RoomRow = { ...room, game: next, status, version: room.version + 1 };
-        return { roomId: room.id, code: room.code, round: room.round, over: next.phase === "over" ? next : null, after, player };
+        return { roomId: room.id, code: room.code, name: room.name, round: room.round, over: next.phase === "over" ? next : null, after, player };
       },
     );
-    if (roomId.over) await reportTournament(roomId.code, roomId.round, roomId.over);
+    if (roomId.over) await reportTournament({ code: roomId.code, name: roomId.name, round: roomId.round }, roomId.over);
     // The caller gets the new state back: no /state round trip after its own move.
     const [state] = await Promise.all([buildState(roomId.after, roomId.player), notifyRoom(roomId.roomId, kind)]);
     return { ok: true, state };

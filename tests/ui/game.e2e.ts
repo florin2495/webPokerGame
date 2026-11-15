@@ -1,7 +1,7 @@
 // Scenario 1: two real browsers play a live tournament on the deployed site: create (password), join by link, start,
 // "Tura ta" / "Tura lui <name>" on both screens for every turn, all-in / call until someone has every chip, the
 // standings on both screens, a new tournament followed live, leave. Every change must reach the other screen through
-// Realtime (well under the 15 s polling fallback). Runs on every project.
+// Realtime (well under the 60 s polling fallback). Runs on every project.
 import { expect, test } from "@playwright/test";
 import { createRoom, joinRoom, leaveAll, playToEnd, REALTIME_MS, startTournament, withPlayers } from "./helpers";
 

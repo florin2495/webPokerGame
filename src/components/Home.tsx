@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiRequestError, clearSession, deviceId, listSessions, parseSession, readSessionRaw, saveSession } from "@/lib/client/api";
 import { PREF_NICKNAME, useStringPref, writePref } from "@/lib/client/prefs";
-import { DEFAULT_SETTINGS, MAX_OBSERVERS, MAX_PLAYERS, NICKNAME_MAX, type Settings, settingsError } from "@/lib/poker";
+import { DEFAULT_SETTINGS, MAX_PLAYERS, NICKNAME_MAX, type Settings, settingsError } from "@/lib/poker";
 import type { Role, RoomListItem, RoomState } from "@/lib/types";
 import { FeedbackButton } from "./FeedbackButton";
 import { Rules } from "./Rules";
@@ -89,7 +89,7 @@ export function Home() {
       <header className="text-center">
         <h1 className="text-4xl font-black tracking-tight">Poker ♠♥</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Texas Hold&apos;em între prieteni, pe telefon. Până la {MAX_PLAYERS} jucători și {MAX_OBSERVERS} observatori.
+          Texas Hold&apos;em între prieteni, pe telefon. Până la {MAX_PLAYERS} jucători, plus observatori.
         </p>
       </header>
 

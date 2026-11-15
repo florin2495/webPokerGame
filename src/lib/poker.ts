@@ -7,8 +7,8 @@ export const MAX_OBSERVERS = 16;
 export const NICKNAME_MAX = 12;
 /** Lobby/finished rooms nobody has open are closed after this long. */
 export const ROOM_IDLE_MINUTES = 10;
-/** A running game nobody has open is closed after this long. */
-export const PLAYING_IDLE_MINUTES = 60;
+/** A running game nobody has open is closed after this long (6 hours, same as ROOM_ABANDONED_PLAYING_MS). */
+export const PLAYING_IDLE_MINUTES = 360;
 /** /state refreshes last_activity_at at most this often, to keep DB writes low. */
 export const PRESENCE_TOUCH_MS = 20_000;
 /** The result of a hand stays on screen this long before the next hand is dealt automatically. */
@@ -30,20 +30,29 @@ export function isRoomExpired(status: string, lastActivityAt: string | Date, now
 }
 
 /**
- * A room in any status (also "playing") is abandoned once its last activity is older than this AND no
- * member (player or observer) has been seen within it. Swept every time the room list loads (GET /api/rooms).
+ * A lobby / finished room is abandoned once its last activity is older than this AND no member (player or
+ * observer) has been seen within it. Swept every time the room list loads (GET /api/rooms).
  */
-export const ROOM_ABANDONED_MS = 120_000;
+export const ROOM_ABANDONED_MS = 600_000;
+/** Same rule for a running tournament ("playing"), with a much longer limit: 6 hours. */
+export const ROOM_ABANDONED_PLAYING_MS = 6 * 3600_000;
+
+/** The abandoned-room limit for a room in this status. */
+export function abandonedLimitMs(status: string): number {
+  return status === "playing" ? ROOM_ABANDONED_PLAYING_MS : ROOM_ABANDONED_MS;
+}
 
 export function isRoomAbandoned(
+  status: string,
   lastActivityAt: string | Date,
   membersLastSeen: (string | Date | null | undefined)[],
   now = Date.now(),
 ): boolean {
+  const limit = abandonedLimitMs(status);
   const recent = (t: string | Date | null | undefined) => {
     if (t === null || t === undefined) return false;
     const ms = new Date(t).getTime();
-    return !Number.isNaN(ms) && now - ms <= ROOM_ABANDONED_MS;
+    return !Number.isNaN(ms) && now - ms <= limit;
   };
   return !recent(lastActivityAt) && !membersLastSeen.some(recent);
 }

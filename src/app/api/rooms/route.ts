@@ -7,7 +7,8 @@ import { cleanupAbandonedRooms, cleanupExpiredRooms, parseSettings, withDefaults
 import type { RoomListItem } from "@/lib/types";
 
 // GET /api/rooms - public list of every live room (idle ones are removed by cleanupExpiredRooms): lobbies (join to play), running and finished games (join to watch / queue).
-// Loading the list ("Intră în cameră") first sweeps abandoned rooms: no member seen and no activity for 120 s.
+// Loading the list ("Intră în cameră") first sweeps abandoned rooms: no member seen and no activity for 600 s
+// (6 h for a running tournament).
 export async function GET() {
   await connection(); // always request-time, never prerendered at build
   return handle(async () => {

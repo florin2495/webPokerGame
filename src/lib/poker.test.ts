@@ -18,6 +18,7 @@ import {
   potTotal,
   removeSeat,
   ROOM_ABANDONED_MS,
+  ROOM_ABANDONED_PLAYING_MS,
   setAuto,
   autoAction,
   autoDeadline,
@@ -380,18 +381,30 @@ describe("timer and auto options", () => {
   });
 });
 
-describe("abandoned rooms (any status)", () => {
+describe("abandoned rooms", () => {
   const now = Date.parse("2026-11-14T12:00:00Z");
   const sec = (s: number) => new Date(now - s * 1000).toISOString();
-  it(`is abandoned after ${ROOM_ABANDONED_MS / 1000} s with nobody seen`, () => {
-    expect(isRoomAbandoned(sec(121), [sec(300), sec(200)], now)).toBe(true);
-    expect(isRoomAbandoned(sec(121), [], now)).toBe(true);
-    expect(isRoomAbandoned(sec(121), [null], now)).toBe(true);
+  it("uses 600 s for lobby / finished and 6 h for a running tournament", () => {
+    expect(ROOM_ABANDONED_MS).toBe(600_000);
+    expect(ROOM_ABANDONED_PLAYING_MS).toBe(6 * 3600_000);
+  });
+  it(`a lobby / finished room is abandoned after ${ROOM_ABANDONED_MS / 1000} s with nobody seen`, () => {
+    for (const status of ["lobby", "finished"]) {
+      expect(isRoomAbandoned(status, sec(601), [sec(900), sec(700)], now)).toBe(true);
+      expect(isRoomAbandoned(status, sec(601), [], now)).toBe(true);
+      expect(isRoomAbandoned(status, sec(601), [null], now)).toBe(true);
+    }
   });
   it("is kept while the last activity is recent", () => {
-    expect(isRoomAbandoned(sec(119), [], now)).toBe(false);
+    expect(isRoomAbandoned("lobby", sec(599), [], now)).toBe(false);
   });
   it("is kept while any player or observer was seen recently", () => {
-    expect(isRoomAbandoned(sec(600), [sec(600), sec(30)], now)).toBe(false);
+    expect(isRoomAbandoned("lobby", sec(3000), [sec(3000), sec(30)], now)).toBe(false);
+  });
+  it("a running tournament is kept for up to 6 h with nobody seen", () => {
+    expect(isRoomAbandoned("playing", sec(601), [sec(601)], now)).toBe(false);
+    expect(isRoomAbandoned("playing", sec(5 * 3600), [], now)).toBe(false);
+    expect(isRoomAbandoned("playing", sec(6 * 3600 + 1), [sec(6 * 3600 + 1)], now)).toBe(true);
+    expect(isRoomAbandoned("playing", sec(7 * 3600), [sec(3 * 3600)], now)).toBe(false);
   });
 });

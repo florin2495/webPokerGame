@@ -8,12 +8,12 @@ import {
   handsUntilLevelUp,
   isRoomAbandoned,
   isRoomExpired,
-  minutesLabel,
   NEXT_HAND_DELAY_MS,
   options,
   PLAYING_IDLE_MINUTES,
   potTotal,
   ROOM_ABANDONED_MS,
+  ROOM_ABANDONED_PLAYING_MS,
   ROOM_IDLE_MINUTES,
   type Settings,
   settingsError,
@@ -31,7 +31,7 @@ import { kickRemainingMs } from "@/lib/kick";
 import { bySeat } from "@/lib/order";
 import { isConnected, LAST_SEEN_TOUCH_MS } from "@/lib/reconnect";
 
-const GONE = `Camera nu există sau a fost închisă după ${minutesLabel(ROOM_IDLE_MINUTES)} de inactivitate.`;
+const GONE = "Camera nu mai există (a fost închisă după inactivitate).";
 
 export function normalizeCode(code: string): string {
   const c = decodeURIComponent(code).trim().toUpperCase();
@@ -52,7 +52,7 @@ export async function getRoomByCode(code: string): Promise<RoomRow> {
   return room;
 }
 
-/** Deletes every idle room (10 min for lobby/finished, 60 min for a game nobody has open). */
+/** Deletes every idle room (10 min for lobby/finished, 6 h for a game nobody has open). */
 export async function cleanupExpiredRooms(): Promise<void> {
   const now = Date.now();
   const short = new Date(now - ROOM_IDLE_MINUTES * 60_000).toISOString();
@@ -64,16 +64,17 @@ export async function cleanupExpiredRooms(): Promise<void> {
 }
 
 /**
- * Deletes rooms in ANY status (also "playing") with no activity for ROOM_ABANDONED_MS and no member
- * (player or observer) seen within it (see isRoomAbandoned). Members cascade with the room.
- * Best effort: a failure is logged, never thrown.
+ * Deletes abandoned rooms: no activity and no member (player or observer) seen for ROOM_ABANDONED_MS (lobby /
+ * finished, 600 s) or ROOM_ABANDONED_PLAYING_MS (a running tournament, 6 h); see isRoomAbandoned. Members cascade
+ * with the room. Best effort: a failure is logged, never thrown.
  */
 export async function cleanupAbandonedRooms(): Promise<void> {
   const now = Date.now();
   const cutoff = new Date(now - ROOM_ABANDONED_MS).toISOString();
+  const playingCutoff = new Date(now - ROOM_ABANDONED_PLAYING_MS).toISOString();
   const { data, error } = await db()
     .from(T.rooms)
-    .select("id, last_activity_at, players:poker_players!poker_players_room_id_fkey(last_seen_at)")
+    .select("id, status, last_activity_at, players:poker_players!poker_players_room_id_fkey(last_seen_at)")
     .lt("last_activity_at", cutoff)
     .limit(200);
   if (error) {
@@ -81,13 +82,20 @@ export async function cleanupAbandonedRooms(): Promise<void> {
     return;
   }
   type Seen = { last_seen_at: string | null }[] | null;
-  const ids = (data ?? [])
-    .filter((r) => isRoomAbandoned(r.last_activity_at as string, ((r.players as Seen) ?? []).map((m) => m.last_seen_at), now))
-    .map((r) => r.id as string);
-  if (ids.length === 0) return;
+  const abandoned = (data ?? []).filter((r) =>
+    isRoomAbandoned(r.status as string, r.last_activity_at as string, ((r.players as Seen) ?? []).map((m) => m.last_seen_at), now),
+  );
+  const idle = abandoned.filter((r) => r.status !== "playing").map((r) => r.id as string);
+  const playing = abandoned.filter((r) => r.status === "playing").map((r) => r.id as string);
   // Re-check the activity cutoff in the delete itself, so a room touched meanwhile survives.
-  const { error: delError } = await db().from(T.rooms).delete().in("id", ids).lt("last_activity_at", cutoff);
-  if (delError) console.error("abandoned cleanup (delete) failed", delError);
+  if (idle.length > 0) {
+    const { error: delError } = await db().from(T.rooms).delete().in("id", idle).lt("last_activity_at", cutoff);
+    if (delError) console.error("abandoned cleanup (delete) failed", delError);
+  }
+  if (playing.length > 0) {
+    const { error: delError } = await db().from(T.rooms).delete().in("id", playing).lt("last_activity_at", playingCutoff);
+    if (delError) console.error("abandoned cleanup (delete) failed", delError);
+  }
 }
 
 /** Records activity on a room, restarting its idle timer. */

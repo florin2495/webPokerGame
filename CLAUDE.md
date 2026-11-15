@@ -19,10 +19,10 @@ so this list is the source of truth. **Update it whenever the user confirms a mi
 
 | Migration | Applied to the live DB | Notes |
 | --- | --- | --- |
-| `supabase/schema.sql` (initial) | no | `poker_rooms`, `poker_players` (with `role`: player / observer) |
+| `supabase/schema.sql` (initial) | yes, verified 2026-11-14 by effect: production E2E exercises its columns | `poker_rooms`, `poker_players` (with `role`: player / observer) |
 | `supabase/migrations/001_pending_kick.sql` | yes (2026-11-07, verified) | `poker_players.kick_requested_at timestamptz` (host kick during a game = 10 s pending kick, "Ignoră"). Code needs it: do not push before it ran |
 | `supabase/migrations/002_reconnect.sql` | yes (2026-11-07, verified: service role 200, anon 401) | `poker_players.last_seen_at`, `device_hash` + index (rejoin the same seat). Code needs it: do not push before it ran |
-| `supabase/migrations/003_seat_queue.sql` | yes (2026-11-08, verified: `seat`, `queued_at` readable with the service key) | `poker_players.seat` (host reorder = seat order), `queued_at` (observer queue "Intră la runda următoare"). Code needs it |
+| `supabase/migrations/003_seat_queue.sql` | yes (2026-11-08, verified: `seat`, `queued_at` readable with the service key; verified again 2026-11-14 by effect: production E2E exercises its columns) | `poker_players.seat` (host reorder = seat order), `queued_at` (observer queue "Intră la runda următoare"). Code needs it |
 
 Rules for schema changes:
 - Every object of this game is prefixed `poker_` (tables, constraints, indexes). Table names live in `T`
@@ -33,11 +33,14 @@ Rules for schema changes:
   service key from `.env.local`.
 - Never print or commit the keys in `.env.local`.
 
-## Abandoned rooms (120 s)
+## Abandoned rooms (600 s; 6 h for a running tournament)
 - `GET /api/rooms` (the room list behind "Intră în cameră") first runs `cleanupAbandonedRooms` (`src/lib/server/room.ts`):
-  every room in ANY status (also `playing`) whose `last_activity_at` is older than `ROOM_ABANDONED_MS` (120 s, `poker.ts`)
-  and with no member (player or observer) `last_seen_at` within 120 s is deleted (members cascade). Open room pages keep
-  both fresh (`/state` polls every 15 s), so only rooms nobody has open disappear. The 10/60-minute idle expiry stays too.
+  a lobby / finished room whose `last_activity_at` is older than `ROOM_ABANDONED_MS` (600 s, `poker.ts`) and with no
+  member (player or observer) `last_seen_at` within 600 s is deleted (members cascade). A `playing` room uses
+  `ROOM_ABANDONED_PLAYING_MS` (6 h) instead, so a tournament survives locked phones. `isRoomAbandoned(status, ...)`; the
+  delete re-checks the matching cutoff. Open room pages keep both fresh (`/state` polls every 60 s), so only rooms nobody
+  has open disappear. The idle expiry (`isRoomExpired` / `cleanupExpiredRooms`) stays too: 10 min lobby / finished,
+  6 h (`PLAYING_IDLE_MINUTES` = 360) for a running tournament, so nothing closes a running room before 6 h.
 
 ## Design
 - Pure rules in `src/lib/poker.ts`: hand evaluation, No-Limit betting (min raise, short all-in does not reopen),
@@ -53,11 +56,12 @@ Rules for schema changes:
   seated players +3 s, observers +6 s); the server checks the deadlines and `turnKey` / `handNo` so duplicates are no-ops.
 - Rejoin the same seat (`src/lib/reconnect.ts`): every member request stamps `last_seen_at` (≤ every 10 s);
   re-joining with an existing nickname reclaims that membership (same player id = same seat and chips, same role,
-  new token, pending kick cleared) from the same device (`device_hash`) or once it has been unseen for 45 s, also
+  new token, pending kick cleared) from the same device (`device_hash`) or once it has been unseen for 301 s
+  (`DISCONNECT_MS`), also
   mid-tournament. A disconnected seat keeps being folded by the turn timer as before. `/state` exposes only `connected`.
 - Reorder (`/reorder`, host, lobby only) saves `seat`; `/start` uses it (never arranged = host first). Observers toggle `/queue`; `/new-round` promotes queued observers in queue order while < 16 players.
-- Leaderboard: at tournament end `src/lib/server/leaderboard.ts` upserts the hub's `hub_leaderboard*` (game `poker`, idempotent per room+round, best effort).
-- Realtime: Broadcast topic `poker:room:<uuid>` carries no data, clients re-fetch `/state`; 15 s polling fallback.
+- Leaderboard: at tournament end `src/lib/server/leaderboard.ts` upserts the hub's `hub_leaderboard*` (game `poker`, idempotent per room+round, best effort). Test rooms (name starts with `e2e-test-`, `isTestRoom` in `src/lib/leaderboard.ts`) are never reported.
+- Realtime: Broadcast topic `poker:room:<uuid>` carries no data, clients re-fetch `/state`; 60 s polling fallback.
 
 ## Testing (GitHub Actions, manual only)
 All checks run in GitHub Actions on the free tier (public repo, standard `ubuntu-latest` runners only, never billed
@@ -67,7 +71,7 @@ Start one with `gh workflow run <file> --ref main`, then `gh run watch` (or the 
 | Workflow | Runs |
 | --- | --- |
 | `.github/workflows/check.yml` "Check code" | `npx next typegen` + `npx tsc --noEmit` (typegen first, so route types in `.next/types` are checked), `npx eslint src`, `npx next build`. Every step runs even if an earlier one failed |
-| `.github/workflows/unit-tests.yml` "Unit tests" | `npm test` (Vitest: `src/lib/poker.test.ts` incl. random full tournaments with 2-16 players, `kick`, `reconnect`, `order`, `leaderboard` tests; pure logic, no DB) |
+| `.github/workflows/unit-tests.yml` "Unit tests" | `npm test` (Vitest: `src/lib/poker.test.ts` incl. random full tournaments with 2-16 players, `kick`, `reconnect`, `order`, `leaderboard` tests, and `src/lib/server/room.test.ts` for `cleanupAbandonedRooms` with the db module mocked; no real DB. `vitest.config.ts` resolves the `@/` alias) |
 | `.github/workflows/e2e.yml` "E2E" | `node scripts/e2e.mjs <base_url>` (input, default production `https://games.hailatat.icu/poker`); one run at a time |
 | `.github/workflows/e2e-ui.yml` "E2E UI (Playwright)" | `npx playwright test` (`playwright.config.ts`, tests in `tests/ui/*.e2e.ts`) against `base_url` (`E2E_BASE_URL`, default production), on desktop Chromium and an emulated iPhone 13 (WebKit). Same concurrency group as "E2E". On failure the report (traces, screenshots, videos) is uploaded as the `playwright-report` artifact |
 
@@ -84,7 +88,7 @@ Start one with `gh workflow run <file> --ref main`, then `gh run watch` (or the 
   end (unique places, winner has every chip), new round. Rooms are named `e2e-test-…` and deleted at the end; it never
   writes feedback (only an empty one, rejected with 400).
 - What E2E UI does (`tests/ui/`, shared steps in `helpers.ts`; every change must reach the other screens within 5 s
-  without a reload, polling is 15 s, so this checks Realtime). Cards are random: the tests read whose turn it is from the
+  without a reload, polling is 60 s, so this checks Realtime). Cards are random: the tests read whose turn it is from the
   screens (the action bar) and play all-in (or call / check), so heads-up the first hand that is not a split ends it.
   - `game.e2e.ts` (both projects): two browser contexts (= two devices): create with a password, join by link, start,
     own 2 cards, every turn shows "Tura ta" on the actor's screen and "Tura lui <name>" on the other, hand results,

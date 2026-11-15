@@ -42,7 +42,7 @@ deploy pe Vercel (fra1). Adresă: **https://games.hailatat.icu/poker**
 - Cine pleacă (sau e scos) în timpul turneului dă fold și pierde jetoanele rămase; jetoanele deja puse în pot rămân acolo.
   Dacă pleacă host-ul, devine host următorul jucător.
 - Camere: lobby/terminate se închid după 10 minute în care nimeni nu le are deschise; un turneu pe care nu-l mai are
-  nimeni deschis se închide după 60 de minute.
+  nimeni deschis se închide după 6 ore.
 - Setări pe dispozitiv: confirmare la all-in și la fold inutil, vibrație când e rândul tău.
 
 ## Arhitectură
@@ -56,7 +56,7 @@ deploy pe Vercel (fra1). Adresă: **https://games.hailatat.icu/poker**
 - Fără cron (Vercel Hobby): expirarea timpului de gândire și mâna următoare sunt declanșate de clienți (întâi host-ul,
   apoi ceilalți ca rezervă), iar serverul verifică termenele. Un request întârziat nu poate sări doi jucători (`turnKey`).
 - Tabelele au RLS activat fără policy și `revoke` pentru `anon`/`authenticated`.
-- Live: Supabase Realtime Broadcast pe `poker:room:<uuid>` (semnal fără date) + polling la 15 s.
+- Live: Supabase Realtime Broadcast pe `poker:room:<uuid>` (semnal fără date) + polling la 60 s.
 
 ## Setup
 

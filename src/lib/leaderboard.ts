@@ -6,6 +6,11 @@ export interface LeaderboardEntry {
   win: boolean;
 }
 
+/** Rooms created by the e2e tests (scripts/e2e.mjs, tests/ui) never reach the shared leaderboard. */
+export function isTestRoom(roomName: string): boolean {
+  return roomName.startsWith("e2e-test-");
+}
+
 /** No accounts: the same nickname (lower-case, trimmed) is the same person. */
 export function playerKey(nickname: string): string {
   return nickname.trim().toLowerCase().slice(0, 40);

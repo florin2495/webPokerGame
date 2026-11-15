@@ -1,6 +1,6 @@
 import "server-only";
 import type { GameState } from "@/lib/poker";
-import { leaderboardEntries } from "@/lib/leaderboard";
+import { isTestRoom, leaderboardEntries } from "@/lib/leaderboard";
 import { db, isMissingTable } from "./db";
 
 const GAME = "poker";
@@ -9,10 +9,15 @@ const GAME = "poker";
  * Reports a finished tournament to the hub's shared leaderboard (hub_leaderboard*, owned by the hub).
  * Idempotent: the (game, room, round) row in hub_leaderboard_rounds is claimed first, so a tournament is counted once
  * however many requests see it end. Best effort - never throws, a failure must not break the game.
+ * Test rooms (`e2e-test-...`, see isTestRoom) are never reported.
  */
-export async function reportTournament(roomCode: string, round: number, game: GameState): Promise<void> {
+export async function reportTournament(
+  room: { code: string; name: string; round: number },
+  game: GameState,
+): Promise<void> {
+  if (isTestRoom(room.name)) return;
   try {
-    const claim = await db().from("hub_leaderboard_rounds").insert({ game: GAME, room_code: roomCode, round_no: round });
+    const claim = await db().from("hub_leaderboard_rounds").insert({ game: GAME, room_code: room.code, round_no: room.round });
     if (claim.error) {
       if (claim.error.code !== "23505" && !isMissingTable(claim.error)) console.error("leaderboard claim failed", claim.error);
       return; // already counted, or the hub migration has not run yet

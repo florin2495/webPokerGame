@@ -20,7 +20,7 @@ interface MemberRow {
 // Before the tournament you choose to play or watch. Once it runs, you can only watch.
 // A nickname that is already a member of the room reclaims that membership (same player id, so the same seat
 // and chips, new token) when the request comes from the same device or the member has been disconnected for
-// 45 s - also mid-tournament. The member keeps their role; `role` is ignored then.
+// 301 s (DISCONNECT_MS) - also mid-tournament. The member keeps their role; `role` is ignored then.
 export async function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/join">) {
   return handle(async () => {
     const { code } = await ctx.params;
